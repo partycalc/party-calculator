@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Party Calculator</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: var(--tg-theme-bg-color, #ffffff);
+      color: var(--tg-theme-text-color, #000000);
+      padding-bottom: 20px;
+    }
+    :root {
+      --tg-theme-bg-color: #ffffff;
+      --tg-theme-text-color: #000000;
+      --tg-theme-hint-color: #999999;
+      --tg-theme-link-color: #2481cc;
+      --tg-theme-button-color: #2481cc;
+      --tg-theme-button-text-color: #ffffff;
+      --tg-theme-secondary-bg-color: #f4f4f5;
+    }
+    .header { background: var(--tg-theme-bg-color); padding: 12px 16px; border-bottom: 1px solid #e5e5ea; position: sticky; top: 0; z-index: 100; }
+    .header-title { font-size: 17px; font-weight: 600; text-align: center; }
+    .tabs { display: flex; background: var(--tg-theme-secondary-bg-color); border-bottom: 1px solid #e5e5ea; }
+    .tab { flex: 1; padding: 12px; text-align: center; background: none; border: none; font-size: 15px; color: var(--tg-theme-hint-color); cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab.active { color: var(--tg-theme-link-color); border-bottom-color: var(--tg-theme-link-color); font-weight: 500; }
+    .content { padding: 16px; }
+    .section { background: var(--tg-theme-bg-color); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+    .section-header { padding: 12px 16px; background: var(--tg-theme-secondary-bg-color); font-size: 13px; font-weight: 600; color: var(--tg-theme-hint-color); text-transform: uppercase; }
+    .list-item { padding: 12px 16px; border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; gap: 12px; }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--tg-theme-link-color); color: white; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .list-item-content { flex: 1; }
+    .list-item-title { font-size: 16px; font-weight: 500; }
+    .list-item-subtitle { font-size: 14px; color: var(--tg-theme-hint-color); }
+    .purchase-card { background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 12px; margin: 8px; display: flex; gap: 12px; align-items: center; }
+    .delete-btn { width: 36px; height: 36px; border-radius: 50%; background: #FF3B30; color: white; border: none; cursor: pointer; }
+    .btn { padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); width: 100%; }
+    .form-input { width: 100%; padding: 12px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 16px; }
+    .hidden { display: none; }
+    .result-card { background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 16px; margin: 12px; }
+    .transfer-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 16px; margin: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header"><div class="header-title">Party Calculator</div></div>
+  <div class="tabs">
+    <button class="tab active" onclick="app.showTab('participants')">Участники</button>
+    <button class="tab" onclick="app.showTab('purchases')">Покупки</button>
+    <button class="tab" onclick="app.showTab('consumption')">Потребление</button>
+    <button class="tab" onclick="app.showTab('results')">Результаты</button>
+  </div>
+  <div class="content">
+    <div id="tab-participants"></div>
+    <div id="tab-purchases" class="hidden"></div>
+    <div id="tab-consumption" class="hidden"></div>
+    <div id="tab-results" class="hidden"></div>
+  </div>
+  <script>
+    const app = {
+      data: { participants: [], purchases: [], consumption: {} },
+      init() {
+        this.loadData();
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.ready();
+          window.Telegram.WebApp.expand();
+        }
+        this.render();
+      },
+      loadData() {
+        const saved = localStorage.getItem('partyCalcData');
+        if (saved) this.data = JSON.parse(saved);
+        if (!this.data.participants.length) this.data.participants = [{id:1,name:'Алексей'},{id:2,name:'Мария'},{id:3,name:'Иван'}];
+        if (!this.data.purchases.length) this.data.purchases = [{id:1,buyerId:1,item:'Пицца',price:400,quantity:3},{id:2,buyerId:2,item:'Вино',price:600,quantity:3}];
+      },
+      saveData() { localStorage.setItem('partyCalcData', JSON.stringify(this.data)); },
+      showTab(t) {
+        ['participants','purchases','consumption','results'].forEach(x => document.getElementById('tab-'+x).classList.add('hidden'));
+        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-'+t).classList.remove('hidden');
+        event.target.classList.add('active');
+      },
+      addParticipant() {
+        const v = document.getElementById('new-participant').value.trim();
+        if (!v) return;
+        this.data.participants.push({id:Date.now(),name:v});
+        document.getElementById('new-participant').value = '';
+        this.saveData(); this.render();
+      },
+      deleteParticipant(id) {
+        if (!confirm('Удалить?')) return;
+        this.data.participants = this.data.participants.filter(p => p.id !== id);
+        this.saveData(); this.render();
+      },
+      addPurchase() {
+        const b = parseInt(document.getElementById('purchase-buyer').value);
+        const i = document.getElementById('purchase-item').value;
+        const p = parseFloat(document.getElementById('purchase-price').value);
+        const q = parseFloat(document.getElementById('purchase-quantity').value) || 1;
+        if (!i || !p) return;
+        this.data.purchases.push({id:Date.now(),buyerId:b,item:i,price:p,quantity:q});
+        document.getElementById('purchase-item').value = '';
+        document.getElementById('purchase-price').value = '';
+        this.saveData(); this.render();
+      },
+      deletePurchase(id) {
+        if (!confirm('Удалить?')) return;
+        this.data.purchases = this.data.purchases.filter(p => p.id !== id);
+        this.saveData(); this.render();
+      },
+      updateConsumption(pid, uid, v) {
+        this.data.consumption[pid+'-'+uid] = parseFloat(v) || 0;
+        this.saveData();
+      },
+      quickSet(pid, uid, f, tot, cnt) {
+        let v = 0;
+        if (f === '0') v = 0;
+        else if (f === 'all') v = tot;
+        else if (f.includes('/')) {
+          const [n,d] = f.split('/').map(Number);
+          v = Math.round(tot * n / d * 100) / 100;
+        }
+        this.data.consumption[pid+'-'+uid] = v;
+        this.saveData(); this.render();
+      },
+      autoDistribute() {
+        if (!confirm('Распределить поровну?')) return;
+        this.data.consumption = {};
+        this.data.purchases.forEach(pu => {
+          const pp = pu.quantity / this.data.participants.length;
+          this.data.participants.forEach((pa,i) => {
+            this.data.consumption[pu.id+'-'+pa.id] = i === this.data.participants.length-1 ? 
+              Math.round((pu.quantity - pp*(this.data.participants.length-1))*100)/100 : Math.round(pp*100)/100;
+          });
+        });
+        this.saveData(); this.render();
+      },
+      clearConsumption() {
+        if (!confirm('Очистить?')) return;
+        this.data.consumption = {};
+        this.saveData(); this.render();
+      },
+      calculateResults() {
+        return this.data.participants.map(pa => {
+          const spent = this.data.purchases.filter(p => p.buyerId === pa.id).reduce((s,p) => s + p.price*p.quantity, 0);
+          const shouldPay = this.data.purchases.reduce((s,pu) => s + (this.data.consumption[pu.id+'-'+pa.id]||0)*pu.price, 0);
+          return {...pa, spent, shouldPay, balance: spent-shouldPay};
+        });
+      },
+      calculateTransfers() {
+        const r = this.calculateResults();
+        const deb = r.filter(x => x.balance < 0).sort((a,b) => a.balance-b.balance);
+        const cred = r.filter(x => x.balance > 0).sort((a,b) => b.balance-a.balance);
+        const tr = [];
+        let i=0,j=0;
+        while (i < deb.length && j < cred.length) {
+          const amt = Math.min(Math.abs(deb[i].balance), cred[j].balance);
+          if (amt > 0.01) tr.push({from:deb[i].name,to:cred[j].name,amount:Math.round(amt)});
+          deb[i].balance += amt; cred[j].balance -= amt;
+          if (Math.abs(deb[i].balance) < 0.01) i++;
+          if (Math.abs(cred[j].balance) < 0.01) j++;
+        }
+        return tr;
+      },
+      render() { this.renderParticipants(); this.renderPurchases(); this.renderConsumption(); this.renderResults(); },
+      renderParticipants() {
+        const r = this.calculateResults();
+        let h = '<div class="section"><div class="section-header">Участники ('+this.data.participants.length+')</div>';
+        this.data.participants.forEach(p => {
+          const res = r.find(x => x.id === p.id);
+          h += '<div class="list-item"><div class="list-item-icon">'+p.name[0].toUpperCase()+'</div>';
+          h += '<div class="list-item-content"><div class="list-item-title">'+p.name+'</div>';
+          h += '<div class="list-item-subtitle">Потратил '+Math.round(res.spent)+'₽</div></div>';
+          h += '<div style="font-size:16px;font-weight:600;color:'+(res.balance>=0?'#34C759':'#FF3B30')+'">';
+          h += (res.balance>=0?'+':'')+Math.round(res.balance)+'₽</div>';
+          h += '<button class="delete-btn" onclick="app.deleteParticipant('+p.id+')">🗑️</button></div>';
+        });
+        h += '</div><div style="display:flex;gap:8px;margin-top:12px">';
+        h += '<input type="text" id="new-participant" class="form-input" placeholder="Имя участника">';
+        h += '<button class="btn btn-primary" style="width:auto;padding:12px 24px" onclick="app.addParticipant()">+</button></div>';
+        document.getElementById('tab-participants').innerHTML = h;
+      },
+      renderPurchases() {
+        const tot = this.data.purchases.reduce((s,p) => s + p.price*p.quantity, 0);
+        let h = '<div class="section"><div class="section-header">Новая покупка</div><div style="padding:16px">';
+        h += '<div style="margin-bottom:16px"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Кто купил?</label>';
+        h += '<select id="purchase-buyer" class="form-input">';
+        this.data.participants.forEach(p => h += '<option value="'+p.id+'">'+p.name+'</option>');
+        h += '</select></div>';
+        h += '<div style="margin-bottom:16px"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Товар</label>';
+        h += '<input type="text" id="purchase-item" class="form-input" placeholder="Пицца"></div>';
+        h += '<div style="display:flex;gap:12px;margin-bottom:16px">';
+        h += '<div style="flex:1"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Цена</label>';
+        h += '<input type="number" id="purchase-price" class="form-input" placeholder="0"></div>';
+        h += '<div style="flex:1"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Кол-во</label>';
+        h += '<input type="number" id="purchase-quantity" class="form-input" value="1" step="0.1"></div></div>';
+        h += '<button class="btn btn-primary" onclick="app.addPurchase()">Добавить</button></div></div>';
+        h += '<div class="section" style="margin-top:16px"><div class="section-header">Покупки ('+this.data.purchases.length+')</div>';
+        this.data.purchases.forEach(p => {
+          const b = this.data.participants.find(x => x.id === p.buyerId);
+          h += '<div class="purchase-card"><div style="flex:1">';
+          h += '<div style="display:flex;justify-content:space-between;margin-bottom:8px">';
+          h += '<span style="font-size:14px;color:var(--tg-theme-hint-color)">Купил: '+(b?b.name:'?')+'</span>';
+          h += '<span style="font-size:18px;font-weight:600;color:var(--tg-theme-link-color)">'+Math.round(p.price*p.quantity)+'₽</span></div>';
+          h += '<div style="font-size:16px;font-weight:500">'+p.item+'</div>';
+          h += '<div style="font-size:14px;color:var(--tg-theme-hint-color)">'+p.price+'₽ × '+p.quantity+' шт</div></div>';
+          h += '<button class="delete-btn" onclick="app.deletePurchase('+p.id+')">🗑️</button></div>';
+        });
+        h += '</div><div style="text-align:right;margin-top:12px;padding:12px;background:var(--tg-theme-secondary-bg-color);border-radius:12px">';
+        h += '<div style="font-size:14px;color:var(--tg-theme-hint-color)">Всего</div>';
+        h += '<div style="font-size:24px;font-weight:700;color:var(--tg-theme-link-color)">'+Math.round(tot)+'₽</div></div>';
+        document.getElementById('tab-purchases').innerHTML = h;
+      },
+      renderConsumption() {
+        let h = '<div style="background:var(--tg-theme-secondary-bg-color);padding:12px;border-radius:12px;margin-bottom:12px">';
+        h += '<div style="font-size:14px;font-weight:500;margin-bottom:8px">Быстрое распределение:</div>';
+        h += '<div style="display:flex;gap:8px"><button style="padding:8px 16px;border-radius:8px;border:1px solid #e5e5ea;background:var(--tg-theme-bg-color);cursor:pointer" onclick="app.autoDistribute()">Всем поровну</button>';
+        h += '<button style="padding:8px 16px;border-radius:8px;border:1px solid #e5e5ea;background:var(--tg-theme-bg-color);cursor:pointer" onclick="app.clearConsumption()">Очистить</button></div></div>';
+        h += '<div style="overflow-x:auto"><table style="width:100%;font-size:14px;border-collapse:collapse">';
+        h += '<thead><tr><th style="background:var(--tg-theme-secondary-bg-color);padding:10px 8px;text-align:left;position:sticky;left:0;z-index:1">Участник</th>';
+        this.data.purchases.forEach(p => {
+          h += '<th style="background:var(--tg-theme-secondary-bg-color);padding:10px 8px;min-width:200px">';
+          h += '<div style="font-weight:600">'+p.item+'</div><div style="font-weight:normal;font-size:12px;margin-top:4px">Всего: '+p.quantity+'</div></th>';
+        });
+        h += '</tr></thead><tbody>';
+        this.data.participants.forEach(pa => {
+          h += '<tr><td style="padding:10px 8px;border-bottom:1px solid #e5e5ea;font-weight:600;position:sticky;left:0;background:var(--tg-theme-bg-color);z-index:1">'+pa.name+'</td>';
+          this.data.purchases.forEach(pu => {
+            const k = pu.id+'-'+pa.id;
+            const v = this.data.consumption[k]||0;
+            h += '<td style="padding:10px 8px;border-bottom:1px solid #e5e5ea"><div style="display:flex;gap:8px;flex-wrap:wrap">';
+            h += '<input type="number" value="'+v+'" onchange="app.updateConsumption('+pu.id+','+pa.id+',this.value);app.render()" step="0.01" style="width:70px;padding:8px;font-size:14px;border:1px solid #e5e5ea;border-radius:6px;text-align:center">';
+            h += '<select onchange="if(this.value){app.quickSet('+pu.id+','+pa.id+',this.value,'+pu.quantity+','+this.data.participants.length+');this.value=\'\'}" style="padding:6px;font-size:12px;border-radius:6px;border:1px solid #e5e5ea">';
+            h += '<option value="">Доля</option><option value="0">0</option><option value="1/3">1/3</option><option value="1/2">1/2</option><option value="all">Всё</option></select></div></td>';
+          });
+          h += '</tr>';
+        });
+        h += '</tbody></table></div>';
+        document.getElementById('tab-consumption').innerHTML = h;
+      },
+      renderResults() {
+        const r = this.calculateResults();
+        const tr = this.calculateTransfers();
+        let h = '<div class="section"><div class="section-header">Баланс</div>';
+        r.forEach(x => {
+          h += '<div class="result-card"><div style="font-size:18px;font-weight:600;margin-bottom:8px">'+x.name+'</div>';
+          h += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px">';
+          h += '<span style="color:var(--tg-theme-hint-color)">Потратил</span><span style="font-weight:600">'+Math.round(x.spent)+'₽</span></div>';
+          h += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px">';
+          h += '<span style="color:var(--tg-theme-hint-color)">Должен</span><span style="font-weight:600">'+Math.round(x.shouldPay)+'₽</span></div>';
+          h += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px">';
+          h += '<span style="color:var(--tg-theme-hint-color)">Баланс</span>';
+          h += '<span style="font-weight:600;color:'+(x.balance>=0?'#34C759':'#FF3B30')+'">'+(x.balance>=0?'+':'')+Math.round(x.balance)+'₽</span></div></div>';
+        });
+        h += '</div>';
+        if (tr.length) {
+          h += '<div class="section" style="margin-top:16px"><div class="section-header">Переводы</div>';
+          tr.forEach(t => {
+            h += '<div class="transfer-card"><div>'+t.from+' → '+t.to+'</div>';
+            h += '<div style="font-size:24px;font-weight:700;margin:8px 0">'+t.amount+'₽</div></div>';
+          });
+          h += '</div>';
+        }
+        document.getElementById('tab-results').innerHTML = h;
+      }
+    };
+    window.onload = () => app.init();
+  </script>
+</body>
+</html>
