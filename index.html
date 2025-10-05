@@ -222,7 +222,9 @@
       resetAll() {
         if (!confirm('Удалить ВСЕ данные и начать заново? Это действие нельзя отменить!')) return;
         localStorage.clear();
-        location.reload();
+        this.data = { participants: [], purchases: [], consumption: {} };
+        this.saveData();
+        this.render();
       },
       getConsumptionStatus(pid) {
         const pu = this.data.purchases.find(p => p.id === pid);
