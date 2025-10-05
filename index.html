@@ -140,40 +140,43 @@
         this.saveData(); this.render();
       },
       updateConsumption(pid, uid, v) {
-        const scrollContainer = document.querySelector('.consumption-table') || document.documentElement;
-        const scrollPos = scrollContainer.scrollLeft || window.scrollX;
+        const table = document.querySelector('.consumption-table');
+        const scrollPos = table ? table.scrollLeft : 0;
+        
         this.data.consumption[pid+'-'+uid] = parseFloat(v) || 0;
         this.saveData();
         this.render();
-        setTimeout(() => {
-          if (scrollContainer === document.documentElement) {
-            window.scrollTo(scrollPos, window.scrollY);
-          } else {
-            scrollContainer.scrollLeft = scrollPos;
-          }
-        }, 0);
+        
+        requestAnimationFrame(() => {
+          const newTable = document.querySelector('.consumption-table');
+          if (newTable) newTable.scrollLeft = scrollPos;
+        });
       },
       quickSet(pid, uid, f, tot, cnt) {
-        const scrollContainer = document.querySelector('.consumption-table');
-        const scrollPos = scrollContainer ? scrollContainer.scrollLeft : window.scrollX;
+        const table = document.querySelector('.consumption-table');
+        const scrollPos = table ? table.scrollLeft : 0;
+        
         let v = 0;
         if (f === '0') v = 0;
         else if (f === 'all') v = tot;
         else if (f.includes('/')) {
           const [n,d] = f.split('/').map(Number);
-          v = Math.round(tot * n / d * 100) / 100;
+          const alreadyDistributed = this.data.participants.reduce((sum, pa) => {
+            if (pa.id === uid) return sum;
+            return sum + (this.data.consumption[pid+'-'+pa.id] || 0);
+          }, 0);
+          const remaining = tot - alreadyDistributed;
+          const exact = tot * n / d;
+          v = Math.min(remaining, Math.round(exact * 100) / 100);
         }
         this.data.consumption[pid+'-'+uid] = v;
         this.saveData(); 
         this.render();
-        setTimeout(() => {
-          const container = document.querySelector('.consumption-table');
-          if (container) {
-            container.scrollLeft = scrollPos;
-          } else {
-            window.scrollTo(scrollPos, window.scrollY);
-          }
-        }, 0);
+        
+        requestAnimationFrame(() => {
+          const newTable = document.querySelector('.consumption-table');
+          if (newTable) newTable.scrollLeft = scrollPos;
+        });
       },
       autoDistributePurchase(pid) {
         const pu = this.data.purchases.find(p => p.id === pid);
@@ -315,7 +318,7 @@
         h += '<div style="font-size:14px;font-weight:500;margin-bottom:8px">Быстрое распределение:</div>';
         h += '<div style="display:flex;gap:8px"><button class="btn-small" onclick="app.autoDistribute()">Все поровну</button>';
         h += '<button class="btn-small" onclick="app.clearConsumption()">Очистить всё</button></div></div>';
-        h += '<div style="overflow-x:auto"><table style="width:100%;font-size:14px;border-collapse:collapse">';
+        h += '<div style="overflow-x:auto" class="consumption-table"><table style="width:100%;font-size:14px;border-collapse:collapse">';
         h += '<thead><tr><th style="background:var(--tg-theme-secondary-bg-color);padding:10px 8px;text-align:left;position:sticky;left:0;z-index:1">Участник</th>';
         this.data.purchases.forEach(p => {
           const st = this.getConsumptionStatus(p.id);
