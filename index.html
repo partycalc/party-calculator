@@ -1,493 +1,274 @@
-import React, { useState, useEffect } from 'react';
-
-const PartyCalculator = () => {
-  const [activeTab, setActiveTab] = useState('participants');
-  const [participants, setParticipants] = useState([
-    { id: 1, name: 'Алексей', spent: 2450 },
-    { id: 2, name: 'Мария', spent: 1800 },
-    { id: 3, name: 'Иван', spent: 950 }
-  ]);
-  const [purchases, setPurchases] = useState([
-    { id: 1, buyerId: 1, item: 'Пицца', price: 400, quantity: 3 },
-    { id: 2, buyerId: 2, item: 'Вино', price: 600, quantity: 3 },
-    { id: 3, buyerId: 1, item: 'Салаты', price: 250, quantity: 5 },
-    { id: 4, buyerId: 3, item: 'Десерт', price: 950, quantity: 1 }
-  ]);
-  const [consumption, setConsumption] = useState({});
-  const [newParticipant, setNewParticipant] = useState('');
-  const [newPurchase, setNewPurchase] = useState({
-    buyerId: 1,
-    item: '',
-    price: '',
-    quantity: '1'
-  });
-
-  useEffect(() => {
-    const saved = localStorage.getItem('partyCalcData');
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        if (data.participants) setParticipants(data.participants);
-        if (data.purchases) setPurchases(data.purchases);
-        if (data.consumption) setConsumption(data.consumption);
-      } catch (e) {
-        console.error('Error loading data:', e);
-      }
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Party Calculator</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: var(--tg-theme-bg-color, #ffffff);
+      color: var(--tg-theme-text-color, #000000);
+      padding-bottom: 20px;
     }
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem('partyCalcData', JSON.stringify({
-      participants,
-      purchases,
-      consumption
-    }));
-  }, [participants, purchases, consumption]);
-
-  useEffect(() => {
-    if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp;
-      tg.ready();
-      tg.expand();
+    :root {
+      --tg-theme-bg-color: #ffffff;
+      --tg-theme-text-color: #000000;
+      --tg-theme-hint-color: #999999;
+      --tg-theme-link-color: #2481cc;
+      --tg-theme-button-color: #2481cc;
+      --tg-theme-button-text-color: #ffffff;
+      --tg-theme-secondary-bg-color: #f4f4f5;
     }
-  }, []);
-
-  const addParticipant = () => {
-    if (!newParticipant.trim()) return;
-    const newId = participants.length > 0 ? Math.max(...participants.map(p => p.id)) + 1 : 1;
-    setParticipants([...participants, { id: newId, name: newParticipant.trim(), spent: 0 }]);
-    setNewParticipant('');
-  };
-
-  const deleteParticipant = (id) => {
-    setParticipants(participants.filter(p => p.id !== id));
-    setPurchases(purchases.filter(p => p.buyerId !== id));
-  };
-
-  const addPurchase = () => {
-    if (!newPurchase.item || !newPurchase.price) return;
-    const newId = purchases.length > 0 ? Math.max(...purchases.map(p => p.id)) + 1 : 1;
-    setPurchases([...purchases, {
-      id: newId,
-      buyerId: parseInt(newPurchase.buyerId),
-      item: newPurchase.item,
-      price: parseFloat(newPurchase.price),
-      quantity: parseFloat(newPurchase.quantity) || 1
-    }]);
-    setNewPurchase({ buyerId: participants[0]?.id || 1, item: '', price: '', quantity: '1' });
-  };
-
-  const deletePurchase = (id) => {
-    setPurchases(purchases.filter(p => p.id !== id));
-  };
-
-  const updateConsumption = (purchaseId, participantId, value) => {
-    setConsumption(prev => {
-      const key = purchaseId + '-' + participantId;
-      const newCons = { ...prev };
-      newCons[key] = parseFloat(value) || 0;
-      return newCons;
-    });
-  };
-
-  const smartRound = (value, total, participantCount) => {
-    const rounded = Math.round(value * 100) / 100;
-    const potentialSum = rounded * participantCount;
-    if (potentialSum > total) {
-      return Math.floor(value * 100) / 100;
-    }
-    return rounded;
-  };
-
-  const quickSet = (purchaseId, participantId, fraction, total, participantCount) => {
-    let value = 0;
-    if (fraction === '0') {
-      value = 0;
-    } else if (fraction === 'all') {
-      value = total;
-    } else if (fraction.includes('/')) {
-      const parts = fraction.split('/');
-      const num = parseFloat(parts[0]);
-      const den = parseFloat(parts[1]);
-      value = smartRound(total * num / den, total, participantCount);
-    }
-    updateConsumption(purchaseId, participantId, value);
-  };
-
-  const autoDistribute = () => {
-    const newConsumption = {};
-    purchases.forEach(purchase => {
-      const perPerson = purchase.quantity / participants.length;
-      participants.forEach((participant, idx) => {
-        let share = perPerson;
-        if (idx === participants.length - 1) {
-          const sumOthers = perPerson * (participants.length - 1);
-          share = purchase.quantity - sumOthers;
+    .header { background: var(--tg-theme-bg-color); padding: 12px 16px; border-bottom: 1px solid #e5e5ea; position: sticky; top: 0; z-index: 100; }
+    .header-title { font-size: 17px; font-weight: 600; text-align: center; }
+    .tabs { display: flex; background: var(--tg-theme-secondary-bg-color); border-bottom: 1px solid #e5e5ea; }
+    .tab { flex: 1; padding: 12px; text-align: center; background: none; border: none; font-size: 15px; color: var(--tg-theme-hint-color); cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab.active { color: var(--tg-theme-link-color); border-bottom-color: var(--tg-theme-link-color); font-weight: 500; }
+    .content { padding: 16px; }
+    .section { background: var(--tg-theme-bg-color); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+    .section-header { padding: 12px 16px; background: var(--tg-theme-secondary-bg-color); font-size: 13px; font-weight: 600; color: var(--tg-theme-hint-color); text-transform: uppercase; }
+    .list-item { padding: 12px 16px; border-bottom: 1px solid #e5e5ea; display: flex; align-items: center; gap: 12px; }
+    .list-item:last-child { border-bottom: none; }
+    .list-item-icon { width: 40px; height: 40px; border-radius: 50%; background: var(--tg-theme-link-color); color: white; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    .list-item-content { flex: 1; }
+    .list-item-title { font-size: 16px; font-weight: 500; }
+    .list-item-subtitle { font-size: 14px; color: var(--tg-theme-hint-color); }
+    .purchase-card { background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 12px; margin: 8px; display: flex; gap: 12px; align-items: center; }
+    .delete-btn { width: 36px; height: 36px; border-radius: 50%; background: #FF3B30; color: white; border: none; cursor: pointer; }
+    .btn { padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
+    .btn-primary { background: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); width: 100%; }
+    .form-input { width: 100%; padding: 12px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 16px; }
+    .hidden { display: none; }
+    .result-card { background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 16px; margin: 12px; }
+    .transfer-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 16px; margin: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header"><div class="header-title">Party Calculator</div></div>
+  <div class="tabs">
+    <button class="tab active" onclick="app.showTab('participants')">Участники</button>
+    <button class="tab" onclick="app.showTab('purchases')">Покупки</button>
+    <button class="tab" onclick="app.showTab('consumption')">Потребление</button>
+    <button class="tab" onclick="app.showTab('results')">Результаты</button>
+  </div>
+  <div class="content">
+    <div id="tab-participants"></div>
+    <div id="tab-purchases" class="hidden"></div>
+    <div id="tab-consumption" class="hidden"></div>
+    <div id="tab-results" class="hidden"></div>
+  </div>
+  <script>
+    const app = {
+      data: { participants: [], purchases: [], consumption: {} },
+      init() {
+        this.loadData();
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.ready();
+          window.Telegram.WebApp.expand();
         }
-        const key = purchase.id + '-' + participant.id;
-        newConsumption[key] = Math.round(share * 100) / 100;
-      });
-    });
-    setConsumption(newConsumption);
-  };
-
-  const clearConsumption = () => {
-    setConsumption({});
-  };
-
-  const calculateResults = () => {
-    return participants.map(participant => {
-      const spent = purchases
-        .filter(p => p.buyerId === participant.id)
-        .reduce((sum, p) => sum + (p.price * p.quantity), 0);
-      
-      const shouldPay = purchases.reduce((sum, purchase) => {
-        const key = purchase.id + '-' + participant.id;
-        const consumed = consumption[key] || 0;
-        return sum + (consumed * purchase.price);
-      }, 0);
-      
-      const balance = spent - shouldPay;
-      
-      return {
-        ...participant,
-        spent,
-        shouldPay,
-        balance
-      };
-    });
-  };
-
-  const calculateTransfers = () => {
-    const results = calculateResults();
-    const debtors = results.filter(r => r.balance < 0).sort((a, b) => a.balance - b.balance);
-    const creditors = results.filter(r => r.balance > 0).sort((a, b) => b.balance - a.balance);
-    
-    const transfers = [];
-    let i = 0;
-    let j = 0;
-    
-    while (i < debtors.length && j < creditors.length) {
-      const debt = Math.abs(debtors[i].balance);
-      const credit = creditors[j].balance;
-      const amount = Math.min(debt, credit);
-      
-      if (amount > 0.01) {
-        transfers.push({
-          from: debtors[i].name,
-          to: creditors[j].name,
-          amount: Math.round(amount)
+        this.render();
+      },
+      loadData() {
+        const saved = localStorage.getItem('partyCalcData');
+        if (saved) this.data = JSON.parse(saved);
+        if (!this.data.participants.length) this.data.participants = [{id:1,name:'Алексей'},{id:2,name:'Мария'},{id:3,name:'Иван'}];
+        if (!this.data.purchases.length) this.data.purchases = [{id:1,buyerId:1,item:'Пицца',price:400,quantity:3},{id:2,buyerId:2,item:'Вино',price:600,quantity:3}];
+      },
+      saveData() { localStorage.setItem('partyCalcData', JSON.stringify(this.data)); },
+      showTab(t) {
+        ['participants','purchases','consumption','results'].forEach(x => document.getElementById('tab-'+x).classList.add('hidden'));
+        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-'+t).classList.remove('hidden');
+        event.target.classList.add('active');
+      },
+      addParticipant() {
+        const v = document.getElementById('new-participant').value.trim();
+        if (!v) return;
+        this.data.participants.push({id:Date.now(),name:v});
+        document.getElementById('new-participant').value = '';
+        this.saveData(); this.render();
+      },
+      deleteParticipant(id) {
+        if (!confirm('Удалить?')) return;
+        this.data.participants = this.data.participants.filter(p => p.id !== id);
+        this.saveData(); this.render();
+      },
+      addPurchase() {
+        const b = parseInt(document.getElementById('purchase-buyer').value);
+        const i = document.getElementById('purchase-item').value;
+        const p = parseFloat(document.getElementById('purchase-price').value);
+        const q = parseFloat(document.getElementById('purchase-quantity').value) || 1;
+        if (!i || !p) return;
+        this.data.purchases.push({id:Date.now(),buyerId:b,item:i,price:p,quantity:q});
+        document.getElementById('purchase-item').value = '';
+        document.getElementById('purchase-price').value = '';
+        this.saveData(); this.render();
+      },
+      deletePurchase(id) {
+        if (!confirm('Удалить?')) return;
+        this.data.purchases = this.data.purchases.filter(p => p.id !== id);
+        this.saveData(); this.render();
+      },
+      updateConsumption(pid, uid, v) {
+        this.data.consumption[pid+'-'+uid] = parseFloat(v) || 0;
+        this.saveData();
+      },
+      quickSet(pid, uid, f, tot, cnt) {
+        let v = 0;
+        if (f === '0') v = 0;
+        else if (f === 'all') v = tot;
+        else if (f.includes('/')) {
+          const [n,d] = f.split('/').map(Number);
+          v = Math.round(tot * n / d * 100) / 100;
+        }
+        this.data.consumption[pid+'-'+uid] = v;
+        this.saveData(); this.render();
+      },
+      autoDistribute() {
+        if (!confirm('Распределить поровну?')) return;
+        this.data.consumption = {};
+        this.data.purchases.forEach(pu => {
+          const pp = pu.quantity / this.data.participants.length;
+          this.data.participants.forEach((pa,i) => {
+            this.data.consumption[pu.id+'-'+pa.id] = i === this.data.participants.length-1 ? 
+              Math.round((pu.quantity - pp*(this.data.participants.length-1))*100)/100 : Math.round(pp*100)/100;
+          });
         });
+        this.saveData(); this.render();
+      },
+      clearConsumption() {
+        if (!confirm('Очистить?')) return;
+        this.data.consumption = {};
+        this.saveData(); this.render();
+      },
+      calculateResults() {
+        return this.data.participants.map(pa => {
+          const spent = this.data.purchases.filter(p => p.buyerId === pa.id).reduce((s,p) => s + p.price*p.quantity, 0);
+          const shouldPay = this.data.purchases.reduce((s,pu) => s + (this.data.consumption[pu.id+'-'+pa.id]||0)*pu.price, 0);
+          return {...pa, spent, shouldPay, balance: spent-shouldPay};
+        });
+      },
+      calculateTransfers() {
+        const r = this.calculateResults();
+        const deb = r.filter(x => x.balance < 0).sort((a,b) => a.balance-b.balance);
+        const cred = r.filter(x => x.balance > 0).sort((a,b) => b.balance-a.balance);
+        const tr = [];
+        let i=0,j=0;
+        while (i < deb.length && j < cred.length) {
+          const amt = Math.min(Math.abs(deb[i].balance), cred[j].balance);
+          if (amt > 0.01) tr.push({from:deb[i].name,to:cred[j].name,amount:Math.round(amt)});
+          deb[i].balance += amt; cred[j].balance -= amt;
+          if (Math.abs(deb[i].balance) < 0.01) i++;
+          if (Math.abs(cred[j].balance) < 0.01) j++;
+        }
+        return tr;
+      },
+      render() { this.renderParticipants(); this.renderPurchases(); this.renderConsumption(); this.renderResults(); },
+      renderParticipants() {
+        const r = this.calculateResults();
+        let h = '<div class="section"><div class="section-header">Участники ('+this.data.participants.length+')</div>';
+        this.data.participants.forEach(p => {
+          const res = r.find(x => x.id === p.id);
+          h += '<div class="list-item"><div class="list-item-icon">'+p.name[0].toUpperCase()+'</div>';
+          h += '<div class="list-item-content"><div class="list-item-title">'+p.name+'</div>';
+          h += '<div class="list-item-subtitle">Потратил '+Math.round(res.spent)+'₽</div></div>';
+          h += '<div style="font-size:16px;font-weight:600;color:'+(res.balance>=0?'#34C759':'#FF3B30')+'">';
+          h += (res.balance>=0?'+':'')+Math.round(res.balance)+'₽</div>';
+          h += '<button class="delete-btn" onclick="app.deleteParticipant('+p.id+')">🗑️</button></div>';
+        });
+        h += '</div><div style="display:flex;gap:8px;margin-top:12px">';
+        h += '<input type="text" id="new-participant" class="form-input" placeholder="Имя участника">';
+        h += '<button class="btn btn-primary" style="width:auto;padding:12px 24px" onclick="app.addParticipant()">+</button></div>';
+        document.getElementById('tab-participants').innerHTML = h;
+      },
+      renderPurchases() {
+        const tot = this.data.purchases.reduce((s,p) => s + p.price*p.quantity, 0);
+        let h = '<div class="section"><div class="section-header">Новая покупка</div><div style="padding:16px">';
+        h += '<div style="margin-bottom:16px"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Кто купил?</label>';
+        h += '<select id="purchase-buyer" class="form-input">';
+        this.data.participants.forEach(p => h += '<option value="'+p.id+'">'+p.name+'</option>');
+        h += '</select></div>';
+        h += '<div style="margin-bottom:16px"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Товар</label>';
+        h += '<input type="text" id="purchase-item" class="form-input" placeholder="Пицца"></div>';
+        h += '<div style="display:flex;gap:12px;margin-bottom:16px">';
+        h += '<div style="flex:1"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Цена</label>';
+        h += '<input type="number" id="purchase-price" class="form-input" placeholder="0"></div>';
+        h += '<div style="flex:1"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Кол-во</label>';
+        h += '<input type="number" id="purchase-quantity" class="form-input" value="1" step="0.1"></div></div>';
+        h += '<button class="btn btn-primary" onclick="app.addPurchase()">Добавить</button></div></div>';
+        h += '<div class="section" style="margin-top:16px"><div class="section-header">Покупки ('+this.data.purchases.length+')</div>';
+        this.data.purchases.forEach(p => {
+          const b = this.data.participants.find(x => x.id === p.buyerId);
+          h += '<div class="purchase-card"><div style="flex:1">';
+          h += '<div style="display:flex;justify-content:space-between;margin-bottom:8px">';
+          h += '<span style="font-size:14px;color:var(--tg-theme-hint-color)">Купил: '+(b?b.name:'?')+'</span>';
+          h += '<span style="font-size:18px;font-weight:600;color:var(--tg-theme-link-color)">'+Math.round(p.price*p.quantity)+'₽</span></div>';
+          h += '<div style="font-size:16px;font-weight:500">'+p.item+'</div>';
+          h += '<div style="font-size:14px;color:var(--tg-theme-hint-color)">'+p.price+'₽ × '+p.quantity+' шт</div></div>';
+          h += '<button class="delete-btn" onclick="app.deletePurchase('+p.id+')">🗑️</button></div>';
+        });
+        h += '</div><div style="text-align:right;margin-top:12px;padding:12px;background:var(--tg-theme-secondary-bg-color);border-radius:12px">';
+        h += '<div style="font-size:14px;color:var(--tg-theme-hint-color)">Всего</div>';
+        h += '<div style="font-size:24px;font-weight:700;color:var(--tg-theme-link-color)">'+Math.round(tot)+'₽</div></div>';
+        document.getElementById('tab-purchases').innerHTML = h;
+      },
+      renderConsumption() {
+        let h = '<div style="background:var(--tg-theme-secondary-bg-color);padding:12px;border-radius:12px;margin-bottom:12px">';
+        h += '<div style="font-size:14px;font-weight:500;margin-bottom:8px">Быстрое распределение:</div>';
+        h += '<div style="display:flex;gap:8px"><button style="padding:8px 16px;border-radius:8px;border:1px solid #e5e5ea;background:var(--tg-theme-bg-color);cursor:pointer" onclick="app.autoDistribute()">Всем поровну</button>';
+        h += '<button style="padding:8px 16px;border-radius:8px;border:1px solid #e5e5ea;background:var(--tg-theme-bg-color);cursor:pointer" onclick="app.clearConsumption()">Очистить</button></div></div>';
+        h += '<div style="overflow-x:auto"><table style="width:100%;font-size:14px;border-collapse:collapse">';
+        h += '<thead><tr><th style="background:var(--tg-theme-secondary-bg-color);padding:10px 8px;text-align:left;position:sticky;left:0;z-index:1">Участник</th>';
+        this.data.purchases.forEach(p => {
+          h += '<th style="background:var(--tg-theme-secondary-bg-color);padding:10px 8px;min-width:200px">';
+          h += '<div style="font-weight:600">'+p.item+'</div><div style="font-weight:normal;font-size:12px;margin-top:4px">Всего: '+p.quantity+'</div></th>';
+        });
+        h += '</tr></thead><tbody>';
+        this.data.participants.forEach(pa => {
+          h += '<tr><td style="padding:10px 8px;border-bottom:1px solid #e5e5ea;font-weight:600;position:sticky;left:0;background:var(--tg-theme-bg-color);z-index:1">'+pa.name+'</td>';
+          this.data.purchases.forEach(pu => {
+            const k = pu.id+'-'+pa.id;
+            const v = this.data.consumption[k]||0;
+            h += '<td style="padding:10px 8px;border-bottom:1px solid #e5e5ea"><div style="display:flex;gap:8px;flex-wrap:wrap">';
+            h += '<input type="number" value="'+v+'" onchange="app.updateConsumption('+pu.id+','+pa.id+',this.value);app.render()" step="0.01" style="width:70px;padding:8px;font-size:14px;border:1px solid #e5e5ea;border-radius:6px;text-align:center">';
+            h += '<select onchange="if(this.value){app.quickSet('+pu.id+','+pa.id+',this.value,'+pu.quantity+','+this.data.participants.length+');this.value=\'\'}" style="padding:6px;font-size:12px;border-radius:6px;border:1px solid #e5e5ea">';
+            h += '<option value="">Доля</option><option value="0">0</option><option value="1/3">1/3</option><option value="1/2">1/2</option><option value="all">Всё</option></select></div></td>';
+          });
+          h += '</tr>';
+        });
+        h += '</tbody></table></div>';
+        document.getElementById('tab-consumption').innerHTML = h;
+      },
+      renderResults() {
+        const r = this.calculateResults();
+        const tr = this.calculateTransfers();
+        let h = '<div class="section"><div class="section-header">Баланс</div>';
+        r.forEach(x => {
+          h += '<div class="result-card"><div style="font-size:18px;font-weight:600;margin-bottom:8px">'+x.name+'</div>';
+          h += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px">';
+          h += '<span style="color:var(--tg-theme-hint-color)">Потратил</span><span style="font-weight:600">'+Math.round(x.spent)+'₽</span></div>';
+          h += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px">';
+          h += '<span style="color:var(--tg-theme-hint-color)">Должен</span><span style="font-weight:600">'+Math.round(x.shouldPay)+'₽</span></div>';
+          h += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px">';
+          h += '<span style="color:var(--tg-theme-hint-color)">Баланс</span>';
+          h += '<span style="font-weight:600;color:'+(x.balance>=0?'#34C759':'#FF3B30')+'">'+(x.balance>=0?'+':'')+Math.round(x.balance)+'₽</span></div></div>';
+        });
+        h += '</div>';
+        if (tr.length) {
+          h += '<div class="section" style="margin-top:16px"><div class="section-header">Переводы</div>';
+          tr.forEach(t => {
+            h += '<div class="transfer-card"><div>'+t.from+' → '+t.to+'</div>';
+            h += '<div style="font-size:24px;font-weight:700;margin:8px 0">'+t.amount+'₽</div></div>';
+          });
+          h += '</div>';
+        }
+        document.getElementById('tab-results').innerHTML = h;
       }
-      
-      debtors[i].balance = debtors[i].balance + amount;
-      creditors[j].balance = creditors[j].balance - amount;
-      
-      if (Math.abs(debtors[i].balance) < 0.01) i = i + 1;
-      if (Math.abs(creditors[j].balance) < 0.01) j = j + 1;
-    }
-    
-    return transfers;
-  };
-
-  const results = calculateResults();
-  const transfers = calculateTransfers();
-  const totalSpent = purchases.reduce((sum, p) => sum + (p.price * p.quantity), 0);
-
-  const getInitial = (name) => name.charAt(0).toUpperCase();
-
-  const handlePurchaseChange = (field, value) => {
-    const updated = { ...newPurchase };
-    updated[field] = value;
-    setNewPurchase(updated);
-  };
-
-  return (
-    <div style={{ 
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
-      background: 'var(--tg-theme-bg-color, #ffffff)',
-      color: 'var(--tg-theme-text-color, #000000)',
-      minHeight: '100vh',
-      paddingBottom: '70px'
-    }}>
-      <div style={{
-        background: 'var(--tg-theme-bg-color)',
-        padding: '12px 16px',
-        borderBottom: '1px solid #e5e5ea',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}>
-        <div style={{ fontSize: '17px', fontWeight: 600, textAlign: 'center' }}>
-          Party Calculator
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', background: 'var(--tg-theme-secondary-bg-color)', borderBottom: '1px solid #e5e5ea' }}>
-        {[
-          { key: 'participants', label: 'Участники' },
-          { key: 'purchases', label: 'Покупки' },
-          { key: 'consumption', label: 'Потребление' },
-          { key: 'results', label: 'Результаты' }
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            style={{
-              flex: 1,
-              padding: '12px',
-              textAlign: 'center',
-              background: 'none',
-              border: 'none',
-              fontSize: '15px',
-              color: activeTab === tab.key ? 'var(--tg-theme-link-color)' : 'var(--tg-theme-hint-color)',
-              borderBottom: activeTab === tab.key ? '2px solid var(--tg-theme-link-color)' : '2px solid transparent',
-              fontWeight: activeTab === tab.key ? 500 : 400,
-              cursor: 'pointer'
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ padding: '16px' }}>
-        {activeTab === 'participants' && (
-          <div>
-            <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: '12px', marginBottom: '12px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', background: 'var(--tg-theme-secondary-bg-color)', fontSize: '13px', fontWeight: 600, color: 'var(--tg-theme-hint-color)', textTransform: 'uppercase' }}>
-                Список участников ({participants.length})
-              </div>
-              {participants.map(p => {
-                const result = results.find(r => r.id === p.id);
-                return (
-                  <div key={p.id} style={{ padding: '12px 16px', borderBottom: '1px solid #e5e5ea', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--tg-theme-link-color)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
-                      {getInitial(p.name)}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '16px', fontWeight: 500 }}>{p.name}</div>
-                      <div style={{ fontSize: '14px', color: 'var(--tg-theme-hint-color)' }}>
-                        Потратил {result ? Math.round(result.spent) : 0}₽
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: result && result.balance >= 0 ? '#34C759' : '#FF3B30' }}>
-                      {result && result.balance >= 0 ? '+' : ''}{result ? Math.round(result.balance) : 0}₽
-                    </div>
-                    <button onClick={() => deleteParticipant(p.id)} style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF3B30', color: 'white', border: 'none', fontSize: '18px', cursor: 'pointer' }}>
-                      🗑️
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input
-                type="text"
-                value={newParticipant}
-                onChange={(e) => setNewParticipant(e.target.value)}
-                placeholder="Имя участника"
-                style={{ flex: 1, padding: '12px', border: '1px solid #e5e5ea', borderRadius: '10px', fontSize: '16px' }}
-              />
-              <button onClick={addParticipant} style={{ padding: '12px 24px', background: 'var(--tg-theme-button-color)', color: 'var(--tg-theme-button-text-color)', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}>
-                +
-              </button>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'purchases' && (
-          <div>
-            <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: '12px', marginBottom: '16px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', background: 'var(--tg-theme-secondary-bg-color)', fontSize: '13px', fontWeight: 600, color: 'var(--tg-theme-hint-color)', textTransform: 'uppercase' }}>
-                Новая покупка
-              </div>
-              <div style={{ padding: '16px' }}>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>Кто купил?</label>
-                  <select value={newPurchase.buyerId} onChange={(e) => handlePurchaseChange('buyerId', parseInt(e.target.value))} style={{ width: '100%', padding: '12px', border: '1px solid #e5e5ea', borderRadius: '10px', fontSize: '16px' }}>
-                    {participants.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>Название товара</label>
-                  <input type="text" value={newPurchase.item} onChange={(e) => handlePurchaseChange('item', e.target.value)} placeholder="Например: Пицца Маргарита" style={{ width: '100%', padding: '12px', border: '1px solid #e5e5ea', borderRadius: '10px', fontSize: '16px' }} />
-                </div>
-                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>Цена за единицу</label>
-                    <input type="number" value={newPurchase.price} onChange={(e) => handlePurchaseChange('price', e.target.value)} placeholder="0" style={{ width: '100%', padding: '12px', border: '1px solid #e5e5ea', borderRadius: '10px', fontSize: '16px' }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>Количество</label>
-                    <input type="number" value={newPurchase.quantity} onChange={(e) => handlePurchaseChange('quantity', e.target.value)} placeholder="1" step="0.1" style={{ width: '100%', padding: '12px', border: '1px solid #e5e5ea', borderRadius: '10px', fontSize: '16px' }} />
-                  </div>
-                </div>
-                <div style={{ background: 'var(--tg-theme-secondary-bg-color)', padding: '12px', borderRadius: '8px', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '14px', color: 'var(--tg-theme-hint-color)' }}>Сумма</span>
-                    <span style={{ fontSize: '20px', fontWeight: 700, color: 'var(--tg-theme-link-color)' }}>
-                      {Math.round((parseFloat(newPurchase.price) || 0) * (parseFloat(newPurchase.quantity) || 0))}₽
-                    </span>
-                  </div>
-                </div>
-                <button onClick={addPurchase} style={{ width: '100%', padding: '14px', background: 'var(--tg-theme-button-color)', color: 'var(--tg-theme-button-text-color)', border: 'none', borderRadius: '10px', fontSize: '16px', fontWeight: 600, cursor: 'pointer' }}>
-                  Добавить покупку
-                </button>
-              </div>
-            </div>
-
-            <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: '12px', marginBottom: '12px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', background: 'var(--tg-theme-secondary-bg-color)', fontSize: '13px', fontWeight: 600, color: 'var(--tg-theme-hint-color)', textTransform: 'uppercase' }}>
-                Список покупок ({purchases.length})
-              </div>
-              {purchases.map(p => {
-                const buyer = participants.find(part => part.id === p.buyerId);
-                return (
-                  <div key={p.id} style={{ background: 'var(--tg-theme-secondary-bg-color)', borderRadius: '12px', padding: '12px', margin: '8px', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '14px', color: 'var(--tg-theme-hint-color)' }}>Купил: {buyer ? buyer.name : 'Неизвестно'}</span>
-                        <span style={{ fontSize: '18px', fontWeight: 600, color: 'var(--tg-theme-link-color)' }}>
-                          {Math.round(p.price * p.quantity)}₽
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '16px', fontWeight: 500, marginBottom: '4px' }}>{p.item}</div>
-                      <div style={{ fontSize: '14px', color: 'var(--tg-theme-hint-color)' }}>
-                        {p.price}₽ × {p.quantity} шт
-                      </div>
-                    </div>
-                    <button onClick={() => deletePurchase(p.id)} style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#FF3B30', color: 'white', border: 'none', fontSize: '18px', cursor: 'pointer' }}>
-                      🗑️
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div style={{ textAlign: 'right', padding: '12px', background: 'var(--tg-theme-secondary-bg-color)', borderRadius: '12px' }}>
-              <div style={{ fontSize: '14px', color: 'var(--tg-theme-hint-color)', marginBottom: '4px' }}>Всего потрачено</div>
-              <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--tg-theme-link-color)' }}>{Math.round(totalSpent)}₽</div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'consumption' && (
-          <div>
-            <div style={{ background: 'var(--tg-theme-secondary-bg-color)', padding: '12px', borderRadius: '12px', marginBottom: '12px' }}>
-              <div style={{ fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>Быстрое распределение:</div>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                <button onClick={autoDistribute} style={{ padding: '8px 16px', background: 'var(--tg-theme-bg-color)', border: '1px solid #e5e5ea', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}>
-                  Всем поровну
-                </button>
-                <button onClick={clearConsumption} style={{ padding: '8px 16px', background: 'var(--tg-theme-bg-color)', border: '1px solid #e5e5ea', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' }}>
-                  Очистить всё
-                </button>
-              </div>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', fontSize: '14px', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={{ background: 'var(--tg-theme-secondary-bg-color)', padding: '10px 8px', textAlign: 'left', position: 'sticky', left: 0, zIndex: 1 }}>Участник</th>
-                    {purchases.map(p => (
-                      <th key={p.id} style={{ background: 'var(--tg-theme-secondary-bg-color)', padding: '10px 8px', textAlign: 'left', minWidth: '200px' }}>
-                        <div style={{ fontWeight: 600 }}>{p.item}</div>
-                        <div style={{ fontWeight: 'normal', fontSize: '12px', marginTop: '4px' }}>
-                          Всего: {p.quantity} шт
-                        </div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {participants.map(participant => (
-                    <tr key={participant.id}>
-                      <td style={{ padding: '10px 8px', borderBottom: '1px solid #e5e5ea', fontWeight: 600, position: 'sticky', left: 0, background: 'var(--tg-theme-bg-color)', zIndex: 1 }}>
-                        {participant.name}
-                      </td>
-                      {purchases.map(purchase => {
-                        const key = purchase.id + '-' + participant.id;
-                        return (
-                          <td key={purchase.id} style={{ padding: '10px 8px', borderBottom: '1px solid #e5e5ea' }}>
-                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                              <input
-                                type="number"
-                                value={consumption[key] || 0}
-                                onChange={(e) => updateConsumption(purchase.id, participant.id, e.target.value)}
-                                step="0.01"
-                                style={{ width: '70px', padding: '8px', fontSize: '14px', border: '1px solid #e5e5ea', borderRadius: '6px', textAlign: 'center' }}
-                              />
-                              <select onChange={(e) => {
-                                if (e.target.value) {
-                                  quickSet(purchase.id, participant.id, e.target.value, purchase.quantity, participants.length);
-                                  e.target.value = '';
-                                }
-                              }} style={{ padding: '6px', fontSize: '12px', borderRadius: '6px', border: '1px solid #e5e5ea' }}>
-                                <option value="">Доля</option>
-                                <option value="0">Не ел</option>
-                                <option value="1/3">1/3</option>
-                                <option value="1/2">1/2</option>
-                                <option value="all">Всё</option>
-                              </select>
-                            </div>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'results' && (
-          <div>
-            <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: '12px', marginBottom: '16px', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', background: 'var(--tg-theme-secondary-bg-color)', fontSize: '13px', fontWeight: 600, color: 'var(--tg-theme-hint-color)', textTransform: 'uppercase' }}>
-                Баланс участников
-              </div>
-              {results.map(r => (
-                <div key={r.id} style={{ background: 'var(--tg-theme-secondary-bg-color)', borderRadius: '12px', padding: '16px', margin: '12px' }}>
-                  <div style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>{r.name}</div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '15px' }}>
-                    <span style={{ color: 'var(--tg-theme-hint-color)' }}>Потратил</span>
-                    <span style={{ fontWeight: 600 }}>{Math.round(r.spent)}₽</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '15px' }}>
-                    <span style={{ color: 'var(--tg-theme-hint-color)' }}>Должен заплатить</span>
-                    <span style={{ fontWeight: 600 }}>{Math.round(r.shouldPay)}₽</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: '15px' }}>
-                    <span style={{ color: 'var(--tg-theme-hint-color)' }}>Баланс</span>
-                    <span style={{ fontWeight: 600, color: r.balance >= 0 ? '#34C759' : '#FF3B30' }}>
-                      {r.balance >= 0 ? '+' : ''}{Math.round(r.balance)}₽
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {transfers.length > 0 && (
-              <div style={{ background: 'var(--tg-theme-bg-color)', borderRadius: '12px', overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', background: 'var(--tg-theme-secondary-bg-color)', fontSize: '13px', fontWeight: 600, color: 'var(--tg-theme-hint-color)', textTransform: 'uppercase' }}>
-                  Итоговые переводы
-                </div>
-                {transfers.map((t, idx) => (
-                  <div key={idx} style={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white', borderRadius: '12px', padding: '16px', margin: '12px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '16px', fontWeight: 500 }}>{t.from} → {t.to}</div>
-                    <div style={{ fontSize: '24px', fontWeight: 700, margin: '8px 0' }}>{t.amount}₽</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default PartyCalculator;
+    };
+    window.onload = () => app.init();
+  </script>
+</body>
+</html>
