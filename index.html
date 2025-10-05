@@ -40,10 +40,14 @@
     .delete-btn { width: 36px; height: 36px; border-radius: 50%; background: #FF3B30; color: white; border: none; cursor: pointer; }
     .btn { padding: 14px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; }
     .btn-primary { background: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); width: 100%; }
+    .btn-small { padding: 6px 12px; font-size: 13px; border-radius: 6px; border: 1px solid #e5e5ea; background: var(--tg-theme-bg-color); cursor: pointer; }
     .form-input { width: 100%; padding: 12px; border: 1px solid #e5e5ea; border-radius: 10px; font-size: 16px; }
     .hidden { display: none; }
     .result-card { background: var(--tg-theme-secondary-bg-color); border-radius: 12px; padding: 16px; margin: 12px; }
     .transfer-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 16px; margin: 12px; text-align: center; }
+    .status-ok { color: #34C759; font-weight: 600; }
+    .status-warn { color: #FF9500; font-weight: 600; }
+    .status-error { color: #FF3B30; font-weight: 600; }
   </style>
 </head>
 <body>
@@ -72,10 +76,28 @@
         this.render();
       },
       loadData() {
-        const saved = localStorage.getItem('partyCalcData');
-        if (saved) this.data = JSON.parse(saved);
-        if (!this.data.participants.length) this.data.participants = [{id:1,name:'Алексей'},{id:2,name:'Мария'},{id:3,name:'Иван'}];
-        if (!this.data.purchases.length) this.data.purchases = [{id:1,buyerId:1,item:'Пицца',price:400,quantity:3},{id:2,buyerId:2,item:'Вино',price:600,quantity:3}];
+        try {
+          const saved = localStorage.getItem('partyCalcData');
+          if (saved) {
+            const data = JSON.parse(saved);
+            if (data.participants && data.participants.length > 0) {
+              const validPurchases = data.purchases ? data.purchases.filter(p => {
+                return data.participants.some(part => part.id === p.buyerId);
+              }) : [];
+              this.data.participants = data.participants;
+              this.data.purchases = validPurchases;
+              this.data.consumption = data.consumption || {};
+              return;
+            }
+          }
+        } catch(e) {
+          console.error('Error loading data:', e);
+          localStorage.clear();
+        }
+        this.data.participants = [{id:1,name:'Алексей'},{id:2,name:'Мария'},{id:3,name:'Иван'},{id:4,name:'Ольга'}];
+        this.data.purchases = [{id:1,buyerId:1,item:'Пицца',price:400,quantity:3},{id:2,buyerId:2,item:'Вино',price:600,quantity:5}];
+        this.data.consumption = {};
+        this.saveData();
       },
       saveData() { localStorage.setItem('partyCalcData', JSON.stringify(this.data)); },
       showTab(t) {
@@ -97,6 +119,10 @@
         this.saveData(); this.render();
       },
       addPurchase() {
+        if (!this.data.participants.length) {
+          alert('Сначала добавьте участников!');
+          return;
+        }
         const b = parseInt(document.getElementById('purchase-buyer').value);
         const i = document.getElementById('purchase-item').value;
         const p = parseFloat(document.getElementById('purchase-price').value);
@@ -105,6 +131,7 @@
         this.data.purchases.push({id:Date.now(),buyerId:b,item:i,price:p,quantity:q});
         document.getElementById('purchase-item').value = '';
         document.getElementById('purchase-price').value = '';
+        document.getElementById('purchase-quantity').value = '1';
         this.saveData(); this.render();
       },
       deletePurchase(id) {
@@ -113,10 +140,22 @@
         this.saveData(); this.render();
       },
       updateConsumption(pid, uid, v) {
+        const scrollContainer = document.querySelector('.consumption-table') || document.documentElement;
+        const scrollPos = scrollContainer.scrollLeft || window.scrollX;
         this.data.consumption[pid+'-'+uid] = parseFloat(v) || 0;
         this.saveData();
+        this.render();
+        setTimeout(() => {
+          if (scrollContainer === document.documentElement) {
+            window.scrollTo(scrollPos, window.scrollY);
+          } else {
+            scrollContainer.scrollLeft = scrollPos;
+          }
+        }, 0);
       },
       quickSet(pid, uid, f, tot, cnt) {
+        const scrollContainer = document.querySelector('.consumption-table');
+        const scrollPos = scrollContainer ? scrollContainer.scrollLeft : window.scrollX;
         let v = 0;
         if (f === '0') v = 0;
         else if (f === 'all') v = tot;
@@ -125,24 +164,77 @@
           v = Math.round(tot * n / d * 100) / 100;
         }
         this.data.consumption[pid+'-'+uid] = v;
+        this.saveData(); 
+        this.render();
+        setTimeout(() => {
+          const container = document.querySelector('.consumption-table');
+          if (container) {
+            container.scrollLeft = scrollPos;
+          } else {
+            window.scrollTo(scrollPos, window.scrollY);
+          }
+        }, 0);
+      },
+      autoDistributePurchase(pid) {
+        const pu = this.data.purchases.find(p => p.id === pid);
+        if (!pu) return;
+        const cnt = this.data.participants.length;
+        const perPerson = pu.quantity / cnt;
+        let distributed = 0;
+        this.data.participants.forEach((pa, i) => {
+          if (i === cnt - 1) {
+            this.data.consumption[pu.id+'-'+pa.id] = Math.round((pu.quantity - distributed) * 100) / 100;
+          } else {
+            const share = Math.round(perPerson * 100) / 100;
+            this.data.consumption[pu.id+'-'+pa.id] = share;
+            distributed += share;
+          }
+        });
         this.saveData(); this.render();
       },
       autoDistribute() {
-        if (!confirm('Распределить поровну?')) return;
+        if (!confirm('Распределить ВСЕ продукты поровну?')) return;
         this.data.consumption = {};
         this.data.purchases.forEach(pu => {
-          const pp = pu.quantity / this.data.participants.length;
-          this.data.participants.forEach((pa,i) => {
-            this.data.consumption[pu.id+'-'+pa.id] = i === this.data.participants.length-1 ? 
-              Math.round((pu.quantity - pp*(this.data.participants.length-1))*100)/100 : Math.round(pp*100)/100;
+          const cnt = this.data.participants.length;
+          const perPerson = pu.quantity / cnt;
+          let distributed = 0;
+          this.data.participants.forEach((pa, i) => {
+            if (i === cnt - 1) {
+              this.data.consumption[pu.id+'-'+pa.id] = Math.round((pu.quantity - distributed) * 100) / 100;
+            } else {
+              const share = Math.round(perPerson * 100) / 100;
+              this.data.consumption[pu.id+'-'+pa.id] = share;
+              distributed += share;
+            }
           });
         });
         this.saveData(); this.render();
       },
       clearConsumption() {
-        if (!confirm('Очистить?')) return;
+        if (!confirm('Очистить таблицу потребления?')) return;
         this.data.consumption = {};
         this.saveData(); this.render();
+      },
+      resetAll() {
+        if (!confirm('Удалить ВСЕ данные и начать заново? Это действие нельзя отменить!')) return;
+        localStorage.clear();
+        location.reload();
+      },
+      getConsumptionStatus(pid) {
+        const pu = this.data.purchases.find(p => p.id === pid);
+        if (!pu) return { filled: 0, total: 0, percent: 0, status: 'warn' };
+        const filled = this.data.participants.reduce((sum, pa) => {
+          const val = this.data.consumption[pid+'-'+pa.id];
+          return sum + (val ? parseFloat(val) : 0);
+        }, 0);
+        const total = pu.quantity;
+        const percent = (filled / total) * 100;
+        let status = 'warn';
+        if (percent > 100.5) status = 'error';
+        else if (percent >= 99.5 && percent <= 100.5) status = 'ok';
+        else status = 'warn';
+        return { filled: Math.round(filled*100)/100, total, percent, status };
       },
       calculateResults() {
         return this.data.participants.map(pa => {
@@ -182,6 +274,8 @@
         h += '</div><div style="display:flex;gap:8px;margin-top:12px">';
         h += '<input type="text" id="new-participant" class="form-input" placeholder="Имя участника">';
         h += '<button class="btn btn-primary" style="width:auto;padding:12px 24px" onclick="app.addParticipant()">+</button></div>';
+        h += '<div style="margin-top:12px;text-align:center">';
+        h += '<button onclick="app.resetAll()" style="padding:8px 16px;background:#FF3B30;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">🗑️ Сбросить все данные</button></div>';
         document.getElementById('tab-participants').innerHTML = h;
       },
       renderPurchases() {
@@ -202,9 +296,10 @@
         h += '<div class="section" style="margin-top:16px"><div class="section-header">Покупки ('+this.data.purchases.length+')</div>';
         this.data.purchases.forEach(p => {
           const b = this.data.participants.find(x => x.id === p.buyerId);
+          if (!b) return;
           h += '<div class="purchase-card"><div style="flex:1">';
           h += '<div style="display:flex;justify-content:space-between;margin-bottom:8px">';
-          h += '<span style="font-size:14px;color:var(--tg-theme-hint-color)">Купил: '+(b?b.name:'?')+'</span>';
+          h += '<span style="font-size:14px;color:var(--tg-theme-hint-color)">Купил: '+b.name+'</span>';
           h += '<span style="font-size:18px;font-weight:600;color:var(--tg-theme-link-color)">'+Math.round(p.price*p.quantity)+'₽</span></div>';
           h += '<div style="font-size:16px;font-weight:500">'+p.item+'</div>';
           h += '<div style="font-size:14px;color:var(--tg-theme-hint-color)">'+p.price+'₽ × '+p.quantity+' шт</div></div>';
@@ -218,13 +313,26 @@
       renderConsumption() {
         let h = '<div style="background:var(--tg-theme-secondary-bg-color);padding:12px;border-radius:12px;margin-bottom:12px">';
         h += '<div style="font-size:14px;font-weight:500;margin-bottom:8px">Быстрое распределение:</div>';
-        h += '<div style="display:flex;gap:8px"><button style="padding:8px 16px;border-radius:8px;border:1px solid #e5e5ea;background:var(--tg-theme-bg-color);cursor:pointer" onclick="app.autoDistribute()">Всем поровну</button>';
-        h += '<button style="padding:8px 16px;border-radius:8px;border:1px solid #e5e5ea;background:var(--tg-theme-bg-color);cursor:pointer" onclick="app.clearConsumption()">Очистить</button></div></div>';
+        h += '<div style="display:flex;gap:8px"><button class="btn-small" onclick="app.autoDistribute()">Все поровну</button>';
+        h += '<button class="btn-small" onclick="app.clearConsumption()">Очистить всё</button></div></div>';
         h += '<div style="overflow-x:auto"><table style="width:100%;font-size:14px;border-collapse:collapse">';
         h += '<thead><tr><th style="background:var(--tg-theme-secondary-bg-color);padding:10px 8px;text-align:left;position:sticky;left:0;z-index:1">Участник</th>';
         this.data.purchases.forEach(p => {
-          h += '<th style="background:var(--tg-theme-secondary-bg-color);padding:10px 8px;min-width:200px">';
-          h += '<div style="font-weight:600">'+p.item+'</div><div style="font-weight:normal;font-size:12px;margin-top:4px">Всего: '+p.quantity+'</div></th>';
+          const st = this.getConsumptionStatus(p.id);
+          let statusClass = 'status-ok';
+          let statusIcon = '✓';
+          if (st.status === 'error') { statusClass = 'status-error'; statusIcon = '⚠'; }
+          else if (st.status === 'warn') { statusClass = 'status-warn'; statusIcon = '⚠'; }
+          h += '<th style="background:var(--tg-theme-secondary-bg-color);padding:10px 8px;min-width:220px">';
+          h += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
+          h += '<span style="font-weight:600">'+p.item+'</span>';
+          h += '<button class="btn-small" onclick="app.autoDistributePurchase('+p.id+')">Поровну</button></div>';
+          h += '<div class="'+statusClass+'" style="font-weight:normal;font-size:12px;margin-top:4px">';
+          h += statusIcon+' '+st.filled+' / '+st.total+' шт';
+          if (st.status === 'error') h += ' <strong>(перебор!)</strong>';
+          else if (st.status === 'warn' && st.filled > 0) h += ' <strong>(недозаполнено)</strong>';
+          else if (st.status === 'warn' && st.filled === 0) h += '';
+          h += '</div></th>';
         });
         h += '</tr></thead><tbody>';
         this.data.participants.forEach(pa => {
@@ -232,10 +340,15 @@
           this.data.purchases.forEach(pu => {
             const k = pu.id+'-'+pa.id;
             const v = this.data.consumption[k]||0;
+            const cnt = this.data.participants.length;
             h += '<td style="padding:10px 8px;border-bottom:1px solid #e5e5ea"><div style="display:flex;gap:8px;flex-wrap:wrap">';
-            h += '<input type="number" value="'+v+'" onchange="app.updateConsumption('+pu.id+','+pa.id+',this.value);app.render()" step="0.01" style="width:70px;padding:8px;font-size:14px;border:1px solid #e5e5ea;border-radius:6px;text-align:center">';
-            h += '<select onchange="if(this.value){app.quickSet('+pu.id+','+pa.id+',this.value,'+pu.quantity+','+this.data.participants.length+');this.value=\'\'}" style="padding:6px;font-size:12px;border-radius:6px;border:1px solid #e5e5ea">';
-            h += '<option value="">Доля</option><option value="0">0</option><option value="1/3">1/3</option><option value="1/2">1/2</option><option value="all">Всё</option></select></div></td>';
+            h += '<input type="number" value="'+v+'" onchange="app.updateConsumption('+pu.id+','+pa.id+',this.value)" step="0.01" style="width:70px;padding:8px;font-size:14px;border:1px solid #e5e5ea;border-radius:6px;text-align:center">';
+            h += '<select onchange="if(this.value){app.quickSet('+pu.id+','+pa.id+',this.value,'+pu.quantity+','+cnt+');this.value=\'\'}" style="padding:6px;font-size:12px;border-radius:6px;border:1px solid #e5e5ea">';
+            h += '<option value="">Доля</option><option value="0">Не ел</option>';
+            for (let d = cnt; d >= 2; d--) {
+              h += '<option value="1/'+d+'">1/'+d+'</option>';
+            }
+            h += '<option value="all">Всё</option></select></div></td>';
           });
           h += '</tr>';
         });
