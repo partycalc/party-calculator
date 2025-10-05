@@ -57,12 +57,14 @@
     <button class="tab" onclick="app.showTab('purchases')">Покупки</button>
     <button class="tab" onclick="app.showTab('consumption')">Потребление</button>
     <button class="tab" onclick="app.showTab('results')">Результаты</button>
+    <button class="tab" onclick="app.showTab('faq')">❓</button>
   </div>
   <div class="content">
     <div id="tab-participants"></div>
     <div id="tab-purchases" class="hidden"></div>
     <div id="tab-consumption" class="hidden"></div>
     <div id="tab-results" class="hidden"></div>
+    <div id="tab-faq" class="hidden"></div>
   </div>
   <script>
     const app = {
@@ -80,11 +82,11 @@
           const saved = localStorage.getItem('partyCalcData');
           if (saved) {
             const data = JSON.parse(saved);
-            if (data.participants && data.participants.length > 0) {
+            if (data.participants !== undefined) {
               const validPurchases = data.purchases ? data.purchases.filter(p => {
                 return data.participants.some(part => part.id === p.buyerId);
               }) : [];
-              this.data.participants = data.participants;
+              this.data.participants = data.participants || [];
               this.data.purchases = validPurchases;
               this.data.consumption = data.consumption || {};
               return;
@@ -94,14 +96,14 @@
           console.error('Error loading data:', e);
           localStorage.clear();
         }
-        this.data.participants = [{id:1,name:'Алексей'},{id:2,name:'Мария'},{id:3,name:'Иван'},{id:4,name:'Ольга'}];
-        this.data.purchases = [{id:1,buyerId:1,item:'Пицца',price:400,quantity:3},{id:2,buyerId:2,item:'Вино',price:600,quantity:5}];
+        this.data.participants = [];
+        this.data.purchases = [];
         this.data.consumption = {};
         this.saveData();
       },
       saveData() { localStorage.setItem('partyCalcData', JSON.stringify(this.data)); },
       showTab(t) {
-        ['participants','purchases','consumption','results'].forEach(x => document.getElementById('tab-'+x).classList.add('hidden'));
+        ['participants','purchases','consumption','results','faq'].forEach(x => document.getElementById('tab-'+x).classList.add('hidden'));
         document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
         document.getElementById('tab-'+t).classList.remove('hidden');
         event.target.classList.add('active');
@@ -263,7 +265,41 @@
         }
         return tr;
       },
-      render() { this.renderParticipants(); this.renderPurchases(); this.renderConsumption(); this.renderResults(); },
+      shareResults() {
+        const results = this.calculateResults();
+        const transfers = this.calculateTransfers();
+        const totalSpent = this.data.purchases.reduce((s,p) => s + p.price*p.quantity, 0);
+        
+        let text = '🎉 Party Calculator - Результаты\n\n';
+        text += '💰 Общие расходы: ' + Math.round(totalSpent) + '₽\n\n';
+        text += '👥 Баланс участников:\n';
+        results.forEach(r => {
+          const sign = r.balance >= 0 ? '+' : '';
+          text += r.name + ': ' + sign + Math.round(r.balance) + '₽\n';
+        });
+        
+        if (transfers.length > 0) {
+          text += '\n💸 Переводы:\n';
+          transfers.forEach(t => {
+            text += t.from + ' → ' + t.to + ': ' + t.amount + '₽\n';
+          });
+        }
+        
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.showPopup({
+            title: 'Поделиться',
+            message: 'Результаты скопированы в буфер обмена',
+            buttons: [{type: 'ok'}]
+          });
+        }
+        
+        if (navigator.share) {
+          navigator.share({ text: text }).catch(() => {});
+        } else if (navigator.clipboard) {
+          navigator.clipboard.writeText(text);
+        }
+      },
+      render() { this.renderParticipants(); this.renderPurchases(); this.renderConsumption(); this.renderResults(); this.renderFAQ(); },
       renderParticipants() {
         const r = this.calculateResults();
         let h = '<div class="section"><div class="section-header">Участники ('+this.data.participants.length+')</div>';
@@ -286,33 +322,44 @@
       renderPurchases() {
         const tot = this.data.purchases.reduce((s,p) => s + p.price*p.quantity, 0);
         let h = '<div class="section"><div class="section-header">Новая покупка</div><div style="padding:16px">';
-        h += '<div style="margin-bottom:16px"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Кто купил?</label>';
-        h += '<select id="purchase-buyer" class="form-input">';
-        this.data.participants.forEach(p => h += '<option value="'+p.id+'">'+p.name+'</option>');
-        h += '</select></div>';
-        h += '<div style="margin-bottom:16px"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Товар</label>';
-        h += '<input type="text" id="purchase-item" class="form-input" placeholder="Пицца"></div>';
-        h += '<div style="display:flex;gap:12px;margin-bottom:16px">';
-        h += '<div style="flex:1"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Цена</label>';
-        h += '<input type="number" id="purchase-price" class="form-input" placeholder="0"></div>';
-        h += '<div style="flex:1"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Кол-во</label>';
-        h += '<input type="number" id="purchase-quantity" class="form-input" value="1" step="0.1"></div></div>';
-        h += '<button class="btn btn-primary" onclick="app.addPurchase()">Добавить</button></div></div>';
-        h += '<div class="section" style="margin-top:16px"><div class="section-header">Покупки ('+this.data.purchases.length+')</div>';
-        this.data.purchases.forEach(p => {
-          const b = this.data.participants.find(x => x.id === p.buyerId);
-          if (!b) return;
-          h += '<div class="purchase-card"><div style="flex:1">';
-          h += '<div style="display:flex;justify-content:space-between;margin-bottom:8px">';
-          h += '<span style="font-size:14px;color:var(--tg-theme-hint-color)">Купил: '+b.name+'</span>';
-          h += '<span style="font-size:18px;font-weight:600;color:var(--tg-theme-link-color)">'+Math.round(p.price*p.quantity)+'₽</span></div>';
-          h += '<div style="font-size:16px;font-weight:500">'+p.item+'</div>';
-          h += '<div style="font-size:14px;color:var(--tg-theme-hint-color)">'+p.price+'₽ × '+p.quantity+' шт</div></div>';
-          h += '<button class="delete-btn" onclick="app.deletePurchase('+p.id+')">🗑️</button></div>';
-        });
-        h += '</div><div style="text-align:right;margin-top:12px;padding:12px;background:var(--tg-theme-secondary-bg-color);border-radius:12px">';
-        h += '<div style="font-size:14px;color:var(--tg-theme-hint-color)">Всего</div>';
-        h += '<div style="font-size:24px;font-weight:700;color:var(--tg-theme-link-color)">'+Math.round(tot)+'₽</div></div>';
+        
+        if (this.data.participants.length === 0) {
+          h += '<div style="padding:20px;text-align:center;color:var(--tg-theme-hint-color)">';
+          h += 'Сначала добавьте участников на вкладке "Участники"</div>';
+        } else {
+          h += '<div style="margin-bottom:16px"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Кто купил?</label>';
+          h += '<select id="purchase-buyer" class="form-input">';
+          this.data.participants.forEach(p => h += '<option value="'+p.id+'">'+p.name+'</option>');
+          h += '</select></div>';
+          h += '<div style="margin-bottom:16px"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Товар</label>';
+          h += '<input type="text" id="purchase-item" class="form-input" placeholder="Например: Вино, Пицца"></div>';
+          h += '<div style="display:flex;gap:12px;margin-bottom:16px">';
+          h += '<div style="flex:1"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Цена</label>';
+          h += '<input type="number" id="purchase-price" class="form-input" placeholder="0"></div>';
+          h += '<div style="flex:1"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Кол-во</label>';
+          h += '<input type="number" id="purchase-quantity" class="form-input" value="1" step="0.1"></div></div>';
+          h += '<button class="btn btn-primary" onclick="app.addPurchase()">Добавить</button>';
+        }
+        h += '</div></div>';
+        
+        if (this.data.purchases.length > 0) {
+          h += '<div class="section" style="margin-top:16px"><div class="section-header">Покупки ('+this.data.purchases.length+')</div>';
+          this.data.purchases.forEach(p => {
+            const b = this.data.participants.find(x => x.id === p.buyerId);
+            if (!b) return;
+            h += '<div class="purchase-card"><div style="flex:1">';
+            h += '<div style="display:flex;justify-content:space-between;margin-bottom:8px">';
+            h += '<span style="font-size:14px;color:var(--tg-theme-hint-color)">Купил: '+b.name+'</span>';
+            h += '<span style="font-size:18px;font-weight:600;color:var(--tg-theme-link-color)">'+Math.round(p.price*p.quantity)+'₽</span></div>';
+            h += '<div style="font-size:16px;font-weight:500">'+p.item+'</div>';
+            h += '<div style="font-size:14px;color:var(--tg-theme-hint-color)">'+p.price+'₽ × '+p.quantity+' шт</div></div>';
+            h += '<button class="delete-btn" onclick="app.deletePurchase('+p.id+')">🗑️</button></div>';
+          });
+          h += '</div>';
+          h += '<div style="text-align:right;margin-top:12px;padding:12px;background:var(--tg-theme-secondary-bg-color);border-radius:12px">';
+          h += '<div style="font-size:14px;color:var(--tg-theme-hint-color)">Всего</div>';
+          h += '<div style="font-size:24px;font-weight:700;color:var(--tg-theme-link-color)">'+Math.round(tot)+'₽</div></div>';
+        }
         document.getElementById('tab-purchases').innerHTML = h;
       },
       renderConsumption() {
@@ -382,8 +429,59 @@
             h += '<div style="font-size:24px;font-weight:700;margin:8px 0">'+t.amount+'₽</div></div>';
           });
           h += '</div>';
+          h += '<button class="btn btn-primary" style="margin-top:12px" onclick="app.shareResults()">📤 Поделиться результатами</button>';
         }
         document.getElementById('tab-results').innerHTML = h;
+      },
+      renderFAQ() {
+        let h = '<div class="section"><div class="section-header">Как пользоваться приложением</div>';
+        h += '<div style="padding:16px">';
+        
+        h += '<div style="margin-bottom:20px">';
+        h += '<div style="font-size:16px;font-weight:600;margin-bottom:8px">1️⃣ Добавьте участников</div>';
+        h += '<div style="font-size:14px;color:var(--tg-theme-hint-color);line-height:1.5">Перейдите на вкладку "Участники" и добавьте всех, кто был на вечеринке. Можно добавлять и удалять участников в любой момент.</div>';
+        h += '</div>';
+        
+        h += '<div style="margin-bottom:20px">';
+        h += '<div style="font-size:16px;font-weight:600;margin-bottom:8px">2️⃣ Внесите покупки</div>';
+        h += '<div style="font-size:14px;color:var(--tg-theme-hint-color);line-height:1.5">На вкладке "Покупки" добавьте всё, что было куплено: кто купил, название, цену и количество. Приложение автоматически посчитает общую сумму.</div>';
+        h += '</div>';
+        
+        h += '<div style="margin-bottom:20px">';
+        h += '<div style="font-size:16px;font-weight:600;margin-bottom:8px">3️⃣ Распределите потребление</div>';
+        h += '<div style="font-size:14px;color:var(--tg-theme-hint-color);line-height:1.5">На вкладке "Потребление" укажите, кто что съел/выпил:<br>• Используйте кнопку "Поровну" для каждого продукта<br>• Или выбирайте доли (1/3, 1/2 и т.д.)<br>• Или вводите точное количество вручную</div>';
+        h += '</div>';
+        
+        h += '<div style="margin-bottom:20px">';
+        h += '<div style="font-size:16px;font-weight:600;margin-bottom:8px">📊 Цветовые индикаторы</div>';
+        h += '<div style="font-size:14px;color:var(--tg-theme-hint-color);line-height:1.5">';
+        h += '<div style="margin-bottom:4px">🟢 <strong style="color:#34C759">Зелёный</strong> - всё распределено правильно</div>';
+        h += '<div style="margin-bottom:4px">🟡 <strong style="color:#FF9500">Жёлтый</strong> - недозаполнено, осталось распределить</div>';
+        h += '<div>🔴 <strong style="color:#FF3B30">Красный</strong> - ошибка, распределено больше, чем есть</div>';
+        h += '</div></div>';
+        
+        h += '<div style="margin-bottom:20px">';
+        h += '<div style="font-size:16px;font-weight:600;margin-bottom:8px">4️⃣ Посмотрите результаты</div>';
+        h += '<div style="font-size:14px;color:var(--tg-theme-hint-color);line-height:1.5">На вкладке "Результаты" увидите:<br>• Баланс каждого участника<br>• Кто кому должен и сколько<br>• Оптимальные переводы для расчётов</div>';
+        h += '</div>';
+        
+        h += '<div style="margin-bottom:20px">';
+        h += '<div style="font-size:16px;font-weight:600;margin-bottom:8px">💾 Сохранение данных</div>';
+        h += '<div style="font-size:14px;color:var(--tg-theme-hint-color);line-height:1.5">Все данные автоматически сохраняются в вашем браузере. При повторном открытии приложения вы продолжите с того места, где остановились.</div>';
+        h += '</div>';
+        
+        h += '<div style="margin-bottom:20px">';
+        h += '<div style="font-size:16px;font-weight:600;margin-bottom:8px">🔄 Экспорт результатов</div>';
+        h += '<div style="font-size:14px;color:var(--tg-theme-hint-color);line-height:1.5">На вкладке "Результаты" нажмите "Поделиться" чтобы отправить итоги друзьям.</div>';
+        h += '</div>';
+        
+        h += '<div style="background:var(--tg-theme-secondary-bg-color);padding:12px;border-radius:8px;margin-top:20px">';
+        h += '<div style="font-size:14px;font-weight:600;margin-bottom:8px">💡 Совет</div>';
+        h += '<div style="font-size:13px;color:var(--tg-theme-hint-color);line-height:1.5">Заполняйте данные прямо во время вечеринки - так ничего не забудете!</div>';
+        h += '</div>';
+        
+        h += '</div></div>';
+        document.getElementById('tab-faq').innerHTML = h;
       }
     };
     window.onload = () => app.init();
