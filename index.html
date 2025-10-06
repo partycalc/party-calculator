@@ -67,7 +67,6 @@
   <script>
     const app = {
       data: { participants: [], purchases: [], consumption: {} },
-      
       init: function() {
         this.loadData();
         if (window.Telegram && window.Telegram.WebApp) {
@@ -76,15 +75,14 @@
         }
         this.render();
       },
-      
       loadData: function() {
         try {
           const saved = localStorage.getItem('partyCalcData');
           if (saved) {
             const data = JSON.parse(saved);
             if (data.participants !== undefined) {
-              const validPurchases = data.purchases ? data.purchases.filter(p => {
-                return data.participants.some(part => part.id === p.buyerId);
+              const validPurchases = data.purchases ? data.purchases.filter(function(p) {
+                return data.participants.some(function(part) { return part.id === p.buyerId; });
               }) : [];
               this.data.participants = data.participants || [];
               this.data.purchases = validPurchases;
@@ -101,18 +99,19 @@
         this.data.consumption = {};
         this.saveData();
       },
-      
       saveData: function() { 
         localStorage.setItem('partyCalcData', JSON.stringify(this.data)); 
       },
-      
       showTab: function(t) {
-        ['participants','purchases','consumption','results'].forEach(x => document.getElementById('tab-'+x).classList.add('hidden'));
-        document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+        ['participants','purchases','consumption','results'].forEach(function(x) {
+          document.getElementById('tab-'+x).classList.add('hidden');
+        });
+        document.querySelectorAll('.tab').forEach(function(b) {
+          b.classList.remove('active');
+        });
         document.getElementById('tab-'+t).classList.remove('hidden');
         event.target.classList.add('active');
       },
-      
       addParticipant: function() {
         const v = document.getElementById('new-participant').value.trim();
         if (!v) return;
@@ -121,14 +120,12 @@
         this.saveData(); 
         this.render();
       },
-      
       deleteParticipant: function(id) {
         if (!confirm('Удалить?')) return;
-        this.data.participants = this.data.participants.filter(p => p.id !== id);
+        this.data.participants = this.data.participants.filter(function(p) { return p.id !== id; });
         this.saveData(); 
         this.render();
       },
-      
       addPurchase: function() {
         if (!this.data.participants.length) {
           alert('Сначала добавьте участников!');
@@ -146,17 +143,15 @@
         this.saveData(); 
         this.render();
       },
-      
       deletePurchase: function(id) {
         if (!confirm('Удалить?')) return;
-        this.data.purchases = this.data.purchases.filter(p => p.id !== id);
+        this.data.purchases = this.data.purchases.filter(function(p) { return p.id !== id; });
         this.saveData(); 
         this.render();
       },
-      
       getGroupedPurchases: function() {
         const groups = {};
-        this.data.purchases.forEach(p => {
+        this.data.purchases.forEach(function(p) {
           const key = p.item + '-' + p.price;
           if (!groups[key]) {
             groups[key] = {
@@ -172,7 +167,6 @@
         });
         return Object.values(groups);
       },
-      
       updateConsumption: function(gkey, uid, v) {
         const table = document.querySelector('.consumption-table');
         const scrollPos = table ? table.scrollLeft : 0;
@@ -184,10 +178,10 @@
           if (newTable) newTable.scrollLeft = scrollPos;
         });
       },
-      
       quickSet: function(gkey, uid, f, tot, cnt) {
         const table = document.querySelector('.consumption-table');
         const scrollPos = table ? table.scrollLeft : 0;
+        const self = this;
         let v = 0;
         if (f === '0') v = 0;
         else if (f === 'all') v = tot;
@@ -195,7 +189,6 @@
           const parts = f.split('/');
           const n = parseFloat(parts[0]);
           const d = parseFloat(parts[1]);
-          const self = this;
           const alreadyDistributed = this.data.participants.reduce(function(sum, pa) {
             if (pa.id === uid) return sum;
             return sum + (self.data.consumption[gkey+'-'+pa.id] || 0);
@@ -212,7 +205,6 @@
           if (newTable) newTable.scrollLeft = scrollPos;
         });
       },
-      
       autoDistributePurchase: function(gkey) {
         const self = this;
         const group = this.getGroupedPurchases().find(function(g) { return g.key === gkey; });
@@ -232,7 +224,6 @@
         this.saveData(); 
         this.render();
       },
-      
       autoDistribute: function() {
         if (!confirm('Распределить ВСЕ продукты поровну?')) return;
         this.data.consumption = {};
@@ -255,14 +246,12 @@
         this.saveData(); 
         this.render();
       },
-      
       clearConsumption: function() {
         if (!confirm('Очистить таблицу потребления?')) return;
         this.data.consumption = {};
         this.saveData(); 
         this.render();
       },
-      
       resetAll: function() {
         if (!confirm('Удалить ВСЕ данные и начать заново? Это действие нельзя отменить!')) return;
         localStorage.clear();
@@ -270,7 +259,6 @@
         this.saveData();
         this.render();
       },
-      
       getConsumptionStatus: function(groupKey) {
         const self = this;
         const group = this.getGroupedPurchases().find(function(g) { return g.key === groupKey; });
@@ -287,7 +275,6 @@
         else status = 'warn';
         return { filled: Math.round(filled*100)/100, total: total, percent: percent, status: status };
       },
-      
       calculateResults: function() {
         const self = this;
         return this.data.participants.map(function(pa) {
@@ -308,7 +295,6 @@
           };
         });
       },
-      
       calculateTransfers: function() {
         const r = this.calculateResults();
         const deb = r.filter(function(x) { return x.balance < 0; }).sort(function(a, b) { return a.balance - b.balance; });
@@ -326,14 +312,12 @@
         }
         return tr;
       },
-      
       render: function() {
         this.renderParticipants();
         this.renderPurchases();
         this.renderConsumption();
         this.renderResults();
       },
-      
       renderParticipants: function() {
         const r = this.calculateResults();
         let h = '<div class="section"><div class="section-header">Участники (' + this.data.participants.length + ')</div>';
@@ -354,7 +338,6 @@
         h += '<button onclick="app.resetAll()" style="padding:8px 16px;background:#FF3B30;color:white;border:none;border-radius:8px;font-size:14px;cursor:pointer">🗑️ Сбросить все данные</button></div>';
         document.getElementById('tab-participants').innerHTML = h;
       },
-      
       renderPurchases: function() {
         const tot = this.data.purchases.reduce(function(s, p) { return s + p.price * p.quantity; }, 0);
         let h = '<div class="section"><div class="section-header">Новая покупка</div><div style="padding:16px">';
@@ -400,7 +383,6 @@
         }
         document.getElementById('tab-purchases').innerHTML = h;
       },
-      
       renderConsumption: function() {
         const groupedPurchases = this.getGroupedPurchases();
         let h = '<div style="background:var(--tg-theme-secondary-bg-color);padding:12px;border-radius:12px;margin-bottom:12px">';
@@ -460,4 +442,26 @@
           h += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px">';
           h += '<span style="color:var(--tg-theme-hint-color)">Потратил</span><span style="font-weight:600">' + Math.round(x.spent) + '₽</span></div>';
           h += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px">';
-          h += '<span style="color:var(--tg-theme-hint-color)">Должен</span><span style="font-
+          h += '<span style="color:var(--tg-theme-hint-color)">Должен</span><span style="font-weight:600">' + Math.round(x.shouldPay) + '₽</span></div>';
+          h += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:15px">';
+          h += '<span style="color:var(--tg-theme-hint-color)">Баланс</span>';
+          h += '<span style="font-weight:600;color:' + (x.balance >= 0 ? '#34C759' : '#FF3B30') + '">' + (x.balance >= 0 ? '+' : '') + Math.round(x.balance) + '₽</span></div></div>';
+        }
+        h += '</div>';
+        if (tr.length) {
+          h += '<div class="section" style="margin-top:16px"><div class="section-header">Переводы</div>';
+          for (let i = 0; i < tr.length; i++) {
+            const t = tr[i];
+            h += '<div class="transfer-card"><div>' + t.from + ' → ' + t.to + '</div>';
+            h += '<div style="font-size:24px;font-weight:700;margin:8px 0">' + t.amount + '₽</div></div>';
+          }
+          h += '</div>';
+        }
+        document.getElementById('tab-results').innerHTML = h;
+      }
+    };
+    
+    window.onload = function() { app.init(); };
+  </script>
+</body>
+</html>
