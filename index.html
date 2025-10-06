@@ -477,8 +477,8 @@
             const cnt = this.data.participants.length;
             h += '<td style="padding:10px 8px;border-bottom:1px solid #e5e5ea"><div style="display:flex;gap:8px;flex-wrap:wrap">';
             h += '<input type="number" value="' + v + '" onchange="app.updateConsumption(\'' + group.key + '\',' + pa.id + ',this.value)" step="0.01" style="width:70px;padding:8px;font-size:14px;border:1px solid #e5e5ea;border-radius:6px;text-align:center">';
-            h += '<select onchange="if(this.value){app.quickSet(\'' + group.key + '\',' + pa.id + ',this.value,’
-+ group.totalQuantity + ',' + cnt + ');this.value=\'\'}" style="padding:6px;font-size:12px;border-radius:6px;border:1px solid #e5e5ea">';
+            h += '<select onchange="if(this.value){app.quickSet(\'' + group.key + '\',' + pa.id + ',this.value,'
+            + group.totalQuantity + ',' + cnt + ');this.value=\'\'}" style="padding:6px;font-size:12px;border-radius:6px;border:1px solid #e5e5ea">';
             h += '<option value="">Доля</option><option value="0">Не ел</option>';
             for (let d = cnt; d >= 2; d--) {
               h += '<option value="1/' + d + '">1/' + d + '</option>';
