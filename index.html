@@ -203,42 +203,126 @@
         const tr = this.calculateTransfers();
         const tot = this.data.purchases.reduce(function(s, p) { return s + p.price * p.quantity; }, 0);
         
-        let text = '📊 *РАСЧЁТ РАСХОДОВ*\n\n';
-        text += '👥 *Участники:*\n';
+        let text = '📊 РАСЧЁТ РАСХОДОВ\n\n';
+        text += '👥 Участники:\n';
         for (let i = 0; i < r.length; i++) {
           const x = r[i];
           text += '• ' + x.name + ': потратил ' + Math.round(x.spent) + '₽, должен ' + Math.round(x.shouldPay) + '₽\n';
           text += '  Баланс: ' + (x.balance >= 0 ? '+' : '') + Math.round(x.balance) + '₽\n';
         }
         
-        text += '\n💰 *Общая сумма:* ' + Math.round(tot) + '₽\n';
+        text += '\n💰 Общая сумма: ' + Math.round(tot) + '₽\n';
         
         if (tr.length) {
-          text += '\n💸 *Кто кому должен:*\n';
+          text += '\n💸 Кто кому должен:\n';
           for (let i = 0; i < tr.length; i++) {
             const t = tr[i];
             text += '• ' + t.from + ' → ' + t.to + ': ' + t.amount + '₽\n';
           }
         }
         
-        text += '\n_Рассчитано в Party Calculator_';
+        text += '\n📱 Рассчитано в Party Calculator';
         
-        if (navigator.share) {
+        // Попробуем разные методы копирования
+        const copyToClipboard = function(txt) {
+          try {
+            // Метод 1: Modern Clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              navigator.clipboard.writeText(txt).then(function() {
+                alert('✅ Результаты скопированы в буфер обмена!\n\nТеперь можете вставить их в любой мессенджер.');
+              }).catch(function(err) {
+                console.error('Ошибка копирования:', err);
+                fallbackCopy(txt);
+              });
+              return;
+            }
+            // Метод 2: Fallback
+            fallbackCopy(txt);
+          } catch (err) {
+            console.error('Ошибка:', err);
+            fallbackCopy(txt);
+          }
+        };
+        
+        const fallbackCopy = function(txt) {
+          const ta = document.createElement('textarea');
+          ta.value = txt;
+          ta.style.position = 'fixed';
+          ta.style.top = '0';
+          ta.style.left = '0';
+          ta.style.width = '2em';
+          ta.style.height = '2em';
+          ta.style.padding = '0';
+          ta.style.border = 'none';
+          ta.style.outline = 'none';
+          ta.style.boxShadow = 'none';
+          ta.style.background = 'transparent';
+          document.body.appendChild(ta);
+          ta.focus();
+          ta.select();
+          
+          try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+              alert('✅ Результаты скопированы в буфер обмена!\n\nТеперь можете вставить их в любой мессенджер.');
+            } else {
+              showTextModal(txt);
+            }
+          } catch (err) {
+            console.error('Ошибка execCommand:', err);
+            showTextModal(txt);
+          }
+          
+          document.body.removeChild(ta);
+        };
+        
+        const showTextModal = function(txt) {
+          // Если копирование не работает, показываем текст для ручного копирования
+          const modal = document.createElement('div');
+          modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;padding:20px;overflow:auto';
+          
+          const content = document.createElement('div');
+          content.style.cssText = 'background:white;padding:20px;border-radius:10px;max-width:500px;margin:0 auto';
+          
+          const title = document.createElement('div');
+          title.style.cssText = 'font-size:18px;font-weight:600;margin-bottom:10px';
+          title.textContent = '📋 Скопируйте результаты:';
+          
+          const textArea = document.createElement('textarea');
+          textArea.value = txt;
+          textArea.style.cssText = 'width:100%;height:300px;padding:10px;border:1px solid #ccc;border-radius:5px;font-size:14px;font-family:monospace';
+          textArea.readOnly = true;
+          
+          const hint = document.createElement('div');
+          hint.style.cssText = 'margin-top:10px;color:#666;font-size:14px';
+          hint.textContent = 'Выделите текст выше и скопируйте (Ctrl+C или Cmd+C)';
+          
+          const closeBtn = document.createElement('button');
+          closeBtn.style.cssText = 'margin-top:10px;padding:10px 20px;background:#2481cc;color:white;border:none;border-radius:5px;font-size:16px;cursor:pointer;width:100%';
+          closeBtn.textContent = 'Закрыть';
+          closeBtn.onclick = function() { document.body.removeChild(modal); };
+          
+          content.appendChild(title);
+          content.appendChild(textArea);
+          content.appendChild(hint);
+          content.appendChild(closeBtn);
+          modal.appendChild(content);
+          document.body.appendChild(modal);
+          
+          textArea.focus();
+          textArea.select();
+        };
+        
+        // Сначала пробуем Web Share API (для мобильных)
+        if (navigator.share && window.Telegram && window.Telegram.WebApp) {
           navigator.share({
             text: text
-          });
-        } else if (navigator.clipboard) {
-          navigator.clipboard.writeText(text).then(function() {
-            alert('Результаты скопированы в буфер обмена!');
+          }).catch(function(err) {
+            console.log('Share API недоступен:', err);
+            copyToClipboard(text);
           });
         } else {
-          const ta = document.createElement('textarea');
-          ta.value = text;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-          alert('Результаты скопированы!');
+          copyToClipboard(text);
         }
       },
       getConsumptionStatus: function(groupKey) {
@@ -1023,3 +1107,5 @@
     };
     
     window.onload = function() { app.init(); };
+  </script>
+  <style>
