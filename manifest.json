@@ -1,3 +1,4 @@
+
 {
   "name": "Party Calculator",
   "short_name": "PartyCalc",
@@ -5,7 +6,6 @@
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2481cc",
-  "orientation": "portrait",
   "icons": [
     {
       "src": "icon-192.png",

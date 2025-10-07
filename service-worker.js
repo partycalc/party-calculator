@@ -1,18 +1,19 @@
-self.addEventListener("install", e => {
+
+self.addEventListener('install', function(e) {
   e.waitUntil(
-    caches.open("partycalc-cache").then(cache => {
+    caches.open('partycalc').then(function(cache) {
       return cache.addAll([
-        "./index.html",
-        "./manifest.json",
-        "./icon-192.png",
-        "./icon-512.png"
+        './index.html',
+        './manifest.json'
       ]);
     })
   );
 });
 
-self.addEventListener("fetch", e => {
+self.addEventListener('fetch', function(e) {
   e.respondWith(
-    caches.match(e.request).then(response => response || fetch(e.request))
+    caches.match(e.request).then(function(response) {
+      return response || fetch(e.request);
+    })
   );
 });

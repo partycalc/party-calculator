@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Party Calculator</title>
-  
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2481cc">
-<link rel="icon" href="icon-192.png" type="image/png">
-
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0, user-scalable=no" name="viewport"/>
+  <title>
+   Party Calculator
+  </title>
+  <link href="manifest.json" rel="manifest"/>
+  <meta content="#2481cc" name="theme-color"/>
+  <link href="icon-192.png" rel="icon" type="image/png"/>
+  <script src="https://telegram.org/js/telegram-web-app.js">
+  </script>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+   * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
       background: var(--tg-theme-bg-color, #ffffff);
@@ -61,27 +62,45 @@
     /* Sticky first column for consumption table */
     .sticky-col { position: sticky; left: 0; background: var(--tg-theme-bg-color); z-index: 2; }
   </style>
-</head>
-<body>
-  <div class="header"><div class="header-title">Party Calculator</div></div>
+ </head>
+ <body>
+  <div class="header">
+   <div class="header-title">
+    Party Calculator
+   </div>
+  </div>
   <div class="tabs">
-    <button class="tab active" onclick="app.showTab(event,'participants')">Участники</button>
-    <button class="tab" onclick="app.showTab(event,'purchases')">Покупки</button>
-    <button class="tab" onclick="app.showTab(event,'consumption')">Потребление</button>
-    <button class="tab" onclick="app.showTab(event,'results')">Результаты</button>
-    <button class="tab" onclick="app.showTab(event,'help')">Помощь</button>
+   <button class="tab active" onclick="app.showTab(event,'participants')">
+    &Ucy;&chcy;&acy;&scy;&tcy;&ncy;&icy;&kcy;&icy;
+   </button>
+   <button class="tab" onclick="app.showTab(event,'purchases')">
+    &Pcy;&ocy;&kcy;&ucy;&pcy;&kcy;&icy;
+   </button>
+   <button class="tab" onclick="app.showTab(event,'consumption')">
+    &Pcy;&ocy;&tcy;&rcy;&iecy;&bcy;&lcy;&iecy;&ncy;&icy;&iecy;
+   </button>
+   <button class="tab" onclick="app.showTab(event,'results')">
+    &Rcy;&iecy;&zcy;&ucy;&lcy;&softcy;&tcy;&acy;&tcy;&ycy;
+   </button>
+   <button class="tab" onclick="app.showTab(event,'help')">
+    &Pcy;&ocy;&mcy;&ocy;&shchcy;&softcy;
+   </button>
   </div>
   <div class="content">
-    <div id="tab-participants"></div>
-    <div id="tab-purchases" class="hidden"></div>
-    <div id="tab-consumption" class="hidden"></div>
-    <div id="tab-results" class="hidden"></div>
-    <div id="tab-help" class="hidden"></div>
+   <div id="tab-participants">
+   </div>
+   <div class="hidden" id="tab-purchases">
+   </div>
+   <div class="hidden" id="tab-consumption">
+   </div>
+   <div class="hidden" id="tab-results">
+   </div>
+   <div class="hidden" id="tab-help">
+   </div>
   </div>
-
   <!-- Основной JS -->
   <script>
-    var app = {
+   var app = {
       data: { participants: [], purchases: [], consumption: {} },
 
       init: function() {
@@ -297,32 +316,21 @@
         const tr = this.calculateTransfers();
         const tot = this.data.purchases.reduce((s,p)=>s+p.price*p.quantity,0);
 
-        let text = '💰 Общий чек: ' + Math.round(tot) + '₽
-
-';
-        text += '👥 Участники:
-';
+        let text = '💰 Общий чек: ' + Math.round(tot) + '₽\n\n';
+        text += '👥 Участники:\n';
         r.forEach(x=>{
-          text += '• ' + x.name + '
-';
-          text += '  Употребил: ' + Math.round(x.shouldPay) + '₽
-';
-          text += '  Потратил: ' + Math.round(x.spent) + '₽
-';
-          text += '  Баланс: ' + (x.balance>=0?'+':'') + Math.round(x.balance) + '₽
-
-';
+          text += '• ' + x.name + '\n';
+          text += '  Употребил: ' + Math.round(x.shouldPay) + '₽\n';
+          text += '  Потратил: ' + Math.round(x.spent) + '₽\n';
+          text += '  Баланс: ' + (x.balance>=0?'+':'') + Math.round(x.balance) + '₽\n\n';
         });
 
         if(tr.length){ 
-          text += '💸 Итоги переводов:
-';
-          tr.forEach(t=>{ text += '• ' + t.from + ' → ' + t.to + ': ' + t.amount + '₽
-'; });
+          text += '💸 Итоги переводов:\n';
+          tr.forEach(t=>{ text += '• ' + t.from + ' → ' + t.to + ': ' + t.amount + '₽\n'; });
         }
 
-        text += '
-📱 Рассчитано в Party Calculator';
+        text += '\n📱 Рассчитано в Party Calculator';
 
         if(navigator.share){
           navigator.share({text:text});
@@ -500,13 +508,11 @@
 
     window.onload = function() { app.init(); };
   </script>
-
-<script>
-  if ("serviceWorker" in navigator) {
+  <script>
+   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js")
       .then(() => console.log("Service Worker зарегистрирован"));
   }
-</script>
-
-</body>
+  </script>
+ </body>
 </html>
