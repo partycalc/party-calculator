@@ -1,18 +1,17 @@
 <!DOCTYPE html>
 <html lang="ru">
- <head>
-  <meta charset="utf-8"/>
-  <meta content="width=device-width, initial-scale=1.0, user-scalable=no" name="viewport"/>
-  <title>
-   Party Calculator
-  </title>
-  <link href="manifest.json" rel="manifest"/>
-  <meta content="#2481cc" name="theme-color"/>
-  <link href="icon-192.png" rel="icon" type="image/png"/>
-  <script src="https://telegram.org/js/telegram-web-app.js">
-  </script>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Party Calculator</title>
+  
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#2481cc">
+<link rel="icon" href="icon-192.png" type="image/png">
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-   * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
       background: var(--tg-theme-bg-color, #ffffff);
@@ -28,9 +27,9 @@
       --tg-theme-button-text-color: #ffffff;
       --tg-theme-secondary-bg-color: #f4f4f5;
     }
-    .header { background: var(--tg-theme-bg-color); padding: 12px 16px; border-bottom: 1px solid #e5e5ea; text-align: center; }
+    .header { background: var(--tg-theme-bg-color); padding: 12px 16px; border-bottom: 1px solid #e5e5ea; position: sticky; top: 0; z-index: 100; }
     .header-title { font-size: 17px; font-weight: 600; text-align: center; }
-    .tabs { display: flex; background: var(--tg-theme-secondary-bg-color); border-bottom: 1px solid #e5e5ea; overflow-x: auto; position: sticky; top: 0; z-index: 100; }
+    .tabs { display: flex; background: var(--tg-theme-secondary-bg-color); border-bottom: 1px solid #e5e5ea; overflow-x: auto; }
     .tab { flex: 1; min-width: 80px; padding: 12px; text-align: center; background: none; border: none; font-size: 15px; color: var(--tg-theme-hint-color); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
     .tab.active { color: var(--tg-theme-link-color); border-bottom-color: var(--tg-theme-link-color); font-weight: 500; }
     .content { padding: 16px; }
@@ -60,47 +59,31 @@
     .faq-answer { font-size: 14px; line-height: 1.5; color: var(--tg-theme-text-color); }
     .developer-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 20px; margin: 16px 0; text-align: center; }
     /* Sticky first column for consumption table */
-    .sticky-col { position: sticky; left: 0; background: var(--tg-theme-bg-color); z-index: 2; }
+    .sticky-col { position: sticky; left: 0; background: var(--tg-theme-bg-color); z-index: 1; }
   </style>
- </head>
- <body>
-  <div class="header">
-   <div class="header-title">
-    Party Calculator
-   </div>
-  </div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body>
+  <div class="header"><div class="header-title">Party Calculator</div></div>
   <div class="tabs">
-   <button class="tab active" onclick="app.showTab(event,'participants')">
-    &Ucy;&chcy;&acy;&scy;&tcy;&ncy;&icy;&kcy;&icy;
-   </button>
-   <button class="tab" onclick="app.showTab(event,'purchases')">
-    &Pcy;&ocy;&kcy;&ucy;&pcy;&kcy;&icy;
-   </button>
-   <button class="tab" onclick="app.showTab(event,'consumption')">
-    &Pcy;&ocy;&tcy;&rcy;&iecy;&bcy;&lcy;&iecy;&ncy;&icy;&iecy;
-   </button>
-   <button class="tab" onclick="app.showTab(event,'results')">
-    &Rcy;&iecy;&zcy;&ucy;&lcy;&softcy;&tcy;&acy;&tcy;&ycy;
-   </button>
-   <button class="tab" onclick="app.showTab(event,'help')">
-    &Pcy;&ocy;&mcy;&ocy;&shchcy;&softcy;
-   </button>
+    <button class="tab active" onclick="app.showTab(event,'participants')">Участники</button>
+    <button class="tab" onclick="app.showTab(event,'purchases')">Покупки</button>
+    <button class="tab" onclick="app.showTab(event,'consumption')">Потребление</button>
+    <button class="tab" onclick="app.showTab(event,'results')">Результаты</button>
+    <button class="tab" onclick="app.showTab(event,'help')">Помощь</button>
   </div>
   <div class="content">
-   <div id="tab-participants">
-   </div>
-   <div class="hidden" id="tab-purchases">
-   </div>
-   <div class="hidden" id="tab-consumption">
-   </div>
-   <div class="hidden" id="tab-results">
-   </div>
-   <div class="hidden" id="tab-help">
-   </div>
+    <div id="tab-participants"></div>
+    <div id="tab-purchases" class="hidden"></div>
+    <div id="tab-consumption" class="hidden"></div>
+    <div id="tab-results" class="hidden"></div>
+<div id="export-results-container" style="display:none"></div>
+    <div id="tab-help" class="hidden"></div>
   </div>
+
   <!-- Основной JS -->
   <script>
-   var app = {
+    var app = {
       data: { participants: [], purchases: [], consumption: {} },
 
       init: function() {
@@ -131,8 +114,16 @@
           console.error('Ошибка загрузки данных:', e);
           localStorage.clear();
         }
-        this.data.participants = [];
-        this.data.purchases = [];
+        this.data.participants = [
+          {id:1,name:'Алексей'},
+          {id:2,name:'Мария'},
+          {id:3,name:'Иван'},
+          {id:4,name:'Ольга'}
+        ];
+        this.data.purchases = [
+          {id:1,buyerId:1,item:'Пицца',price:400,quantity:3},
+          {id:2,buyerId:2,item:'Вино',price:600,quantity:5}
+        ];
         this.data.consumption = {};
         this.saveData();
       },
@@ -308,29 +299,84 @@
         const tr = this.calculateTransfers();
         const tot = this.data.purchases.reduce((s,p)=>s+p.price*p.quantity,0);
 
-        let text = '💰 Общий чек: ' + Math.round(tot) + '₽\n\n';
-        text += '👥 Участники:\n';
+        // Генерируем HTML таблицу для картинки
+        let htmlTable = '<div style="font-family:monospace;background:white;color:black;padding:20px;max-width:600px">';
+        htmlTable += '<h2 style="margin:0 0 10px 0">📊 РАСЧЁТ РАСХОДОВ</h2>';
+        htmlTable += '<table border="1" cellspacing="0" cellpadding="6" style="border-collapse:collapse;width:100%;text-align:center">';
+        htmlTable += '<tr><th>Имя</th><th>Потратил</th><th>Должен</th><th>Баланс</th></tr>';
         r.forEach(x=>{
-          text += '• ' + x.name + '\n';
-          text += '  Употребил: ' + Math.round(x.shouldPay) + '₽\n';
-          text += '  Потратил: ' + Math.round(x.spent) + '₽\n';
-          text += '  Баланс: ' + (x.balance>=0?'+':'') + Math.round(x.balance) + '₽\n\n';
+          htmlTable += '<tr>';
+          htmlTable += '<td>'+x.name+'</td>';
+          htmlTable += '<td>'+Math.round(x.spent)+'₽</td>';
+          htmlTable += '<td>'+Math.round(x.shouldPay)+'₽</td>';
+          htmlTable += '<td>'+((x.balance>=0?'+':'')+Math.round(x.balance))+'₽</td>';
+          htmlTable += '</tr>';
         });
+        htmlTable += '</table>';
+        htmlTable += '<p><b>💰 Общая сумма:</b> '+Math.round(tot)+'₽</p>';
+        if(tr.length){
+          htmlTable += '<p><b>💸 Кто кому должен:</b><br>';
+          tr.forEach(t=>{ htmlTable += t.from+' → '+t.to+': '+t.amount+'₽<br>'; });
+          htmlTable += '</p>';
+        }
+        htmlTable += '<p style="font-size:12px;color:#555">📱 Рассчитано в Party Calculator</p>';
+        htmlTable += '</div>';
 
-        if(tr.length){ 
-          text += '💸 Итоги переводов:\n';
-          tr.forEach(t=>{ text += '• ' + t.from + ' → ' + t.to + ': ' + t.amount + '₽\n'; });
+        // Вставляем HTML во временный контейнер
+        const container = document.getElementById('export-results-container');
+        container.innerHTML = htmlTable;
+        container.style.display = 'block';
+
+        // Рендерим в PNG
+        html2canvas(container).then(canvas => {
+          container.style.display = 'none';
+          const link = document.createElement('a');
+          link.download = 'party_calculator_results.png';
+          link.href = canvas.toDataURL();
+          link.click();
+        }).catch(err => {
+          console.error('Ошибка генерации PNG:', err);
+          alert('Не удалось создать картинку, используйте текстовый экспорт.');
+        });
+      }, 0);
+
+        let text = '📊 РАСЧЁТ РАСХОДОВ\n';
+        text += '=====================\n\n';
+
+        text += 'Имя        | Потратил | Должен | Баланс\n';
+        text += '---------------------------------------\n';
+        for (let i = 0; i < r.length; i++) {
+          const x = r[i];
+          const spent = Math.round(x.spent) + '₽';
+          const shouldPay = Math.round(x.shouldPay) + '₽';
+          const balance = (x.balance >= 0 ? '+' : '') + Math.round(x.balance) + '₽';
+          text += (x.name.padEnd(10)) + '| ' + spent.padStart(8) + ' | ' + shouldPay.padStart(6) + ' | ' + balance.padStart(7) + '\n';
+        }
+
+        text += '\n💰 Общая сумма: ' + Math.round(tot) + '₽\n';
+        text += '=====================\n';
+
+        if (tr.length) {
+          text += '\n💸 Кто кому должен:\n';
+          for (let i = 0; i < tr.length; i++) {
+            const t = tr[i];
+            text += '• ' + t.from + ' → ' + t.to + ': ' + t.amount + '₽\n';
+          }
         }
 
         text += '\n📱 Рассчитано в Party Calculator';
 
-        if(navigator.share){
-          navigator.share({text:text});
-        } else if(navigator.clipboard){
-          navigator.clipboard.writeText(text).then(()=>alert('Результаты скопированы в буфер обмена!'));
+        if (navigator.share) {
+          navigator.share({
+            text: text
+          });
+        } else if (navigator.clipboard) {
+          navigator.clipboard.writeText(text).then(function() {
+            alert('Результаты скопированы в буфер обмена!');
+          });
         } else {
-          const ta=document.createElement('textarea');
-          ta.value=text;
+          const ta = document.createElement('textarea');
+          ta.value = text;
           document.body.appendChild(ta);
           ta.select();
           document.execCommand('copy');
@@ -338,6 +384,7 @@
           alert('Результаты скопированы!');
         }
       },
+
       render: function(){
         this.renderParticipants(); this.renderPurchases(); this.renderConsumption(); this.renderResults(); this.renderHelp();
       },
@@ -381,12 +428,12 @@
           this.data.participants.forEach(p=>{ h+='<option value="'+p.id+'">'+p.name+'</option>'; });
           h+='</select></div>'
             +'<div style="margin-bottom:16px"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Товар</label>'
-            +'<input type="text" id="purchase-item" class="form-input" placeholder=""></div>'
+            +'<input type="text" id="purchase-item" class="form-input" placeholder="Пицца"></div>'
             +'<div style="display:flex;gap:12px;margin-bottom:16px">'
               +'<div style="flex:1"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Цена</label>'
-              +'<input type="number" id="purchase-price" class="form-input" placeholder="0" onfocus="this.value=''"></div>'
+              +'<input type="number" id="purchase-price" class="form-input" placeholder="0"></div>'
               +'<div style="flex:1"><label style="display:block;font-size:14px;font-weight:500;margin-bottom:8px">Кол-во</label>'
-              +'<input type="number" id="purchase-quantity" class="form-input" value="" step="0.1" onfocus="this.value=''"></div>'
+              +'<input type="number" id="purchase-quantity" class="form-input" placeholder="0" step="0.1"></div>'
             +'</div>'
             +'<button class="btn btn-primary" onclick="app.addPurchase()">Добавить</button>';
         }
@@ -500,11 +547,13 @@
 
     window.onload = function() { app.init(); };
   </script>
-  <script>
-   if ("serviceWorker" in navigator) {
+
+<script>
+  if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("service-worker.js")
       .then(() => console.log("Service Worker зарегистрирован"));
   }
-  </script>
- </body>
+</script>
+
+</body>
 </html>
