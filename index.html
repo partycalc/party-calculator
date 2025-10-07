@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Party Calculator</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2481cc">
+  <link rel="icon" href="icon-192.png" type="image/png">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    *{box-sizing:border-box}
+    :root{
+      --tg-theme-bg-color:#0f1720;
+      --tg-theme-text-color:#e6e7e9;
+      --tg-theme-hint-color:#9aa3ae;
+      --tg-theme-link-color:#2481cc;
+      --tg-theme-button-color:#2481cc;
+      --tg-theme-button-text-color:#ffffff;
+      --tg-theme-secondary-bg-color:#1b2835;
+    }
+    body{
+      margin:0;
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
+      background:var(--tg-theme-bg-color);
+      color:var(--tg-theme-text-color);
+    }
+    .header{position:sticky;top:0;z-index:100;background:var(--tg-theme-bg-color);border-bottom:1px solid #213040;padding:12px 16px}
+    .header-title{font-size:18px;font-weight:700;text-align:center}
+    .tabs{display:flex;gap:4px;overflow-x:auto;position:sticky;top:48px;z-index:90;background:var(--tg-theme-bg-color);border-bottom:1px solid #213040}
+    .tab{flex:none;min-width:120px;padding:12px;border:none;background:none;color:var(--tg-theme-hint-color);cursor:pointer;border-bottom:2px solid transparent;transition:color .2s, border-color .2s, background .2s}
+    .tab:hover{background:rgba(255,255,255,.04);color:#cfe6ff}
+    .tab:active{background:rgba(255,255,255,.08)}
+    .tab.active{color:var(--tg-theme-link-color);border-bottom-color:var(--tg-theme-link-color);font-weight:600}
+    .content{padding:16px;padding-top:8px}
+    .section{background:var(--tg-theme-secondary-bg-color);border-radius:12px;margin-bottom:12px;overflow:hidden;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+    .section-header{padding:12px 16px;background:#0f1924;color:#9fb3c7;text-transform:uppercase;font-size:12px;font-weight:700;letter-spacing:.05em}
+    .list-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid #223142}
+    .list-item:last-child{border-bottom:none}
+    .list-item-icon{width:40px;height:40px;border-radius:50%;background:var(--tg-theme-link-color);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700}
+    .list-item-content{flex:1}
+    .list-item-title{font-weight:600}
+    .list-item-subtitle{color:var(--tg-theme-hint-color);font-size:13px}
+    .purchase-card{display:flex;gap:12px;align-items:center;background:#0f1924;border-radius:12px;padding:12px;margin:8px}
+    .delete-btn{width:36px;height:36px;border-radius:10px;border:none;background:#ff3b30;color:#fff;cursor:pointer}
+    .btn{padding:14px;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer}
+    .btn-primary{background:var(--tg-theme-button-color);color:var(--tg-theme-button-text-color)}
+    .btn-secondary{background:#34C759;color:#fff}
+    .btn-small{padding:6px 10px;border-radius:6px;border:1px solid #2b3a4b;background:#0f1924;color:#cfe6ff;cursor:pointer}
+    .form-input{width:100%;padding:12px;border:1px solid #2b3a4b;border-radius:10px;background:#0b121a;color:#e6e7e9}
+    .hidden{display:none}
+    .result-card{background:#0f1924;border-radius:12px;padding:16px;margin:12px}
+    .transfer-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:12px;color:#fff;padding:16px;margin:12px;text-align:center}
+    .status-ok{color:#34C759;font-weight:700}
+    .status-warn{color:#FF9500;font-weight:700}
+    .status-error{color:#FF3B30;font-weight:700}
+    .faq-item{background:#0f1924;border-radius:12px;padding:16px;margin:12px}
+    .faq-question{font-size:16px;font-weight:700;margin-bottom:8px;color:#cfe6ff}
+    .faq-answer{font-size:14px;color:#d9e1ea}
+    .developer-card{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;border-radius:12px;padding:20px;margin:16px 12px;text-align:center}
+    /* table */
+    .consumption-table{overflow-x:auto}
+    th,td{border-bottom:1px solid #213040;padding:8px}
+    thead th{position:sticky;top:96px;background:#0f1924;z-index:5}
+    tbody td:first-child, thead th:first-child{position:sticky;left:0;background:#0f1924;z-index:6}
+    /* animations */
+    .pane{opacity:0;transform:translateY(6px);transition:opacity .18s ease, transform .18s ease}
+    .pane.active{opacity:1;transform:none}
+  </style>
+</head>
+<body>
+  <div class="header"><div class="header-title">Party Calculator</div></div>
+  <div class="tabs">
+    <button class="tab active" onclick="app.showTab('participants', this)">Участники</button>
+    <button class="tab" onclick="app.showTab('purchases', this)">Покупки</button>
+    <button class="tab" onclick="app.showTab('consumption', this)">Потребление</button>
+    <button class="tab" onclick="app.showTab('results', this)">Результаты</button>
+    <button class="tab" onclick="app.showTab('help', this)">Помощь</button>
+  </div>
+  <div class="content">
+    <div id="tab-participants" class="pane active"></div>
+    <div id="tab-purchases" class="pane hidden"></div>
+    <div id="tab-consumption" class="pane hidden"></div>
+    <div id="tab-results" class="pane hidden"></div>
+    <div id="tab-help" class="pane hidden"></div>
+  </div>
+
+<script>
+var app = {
+  data:{participants:[], purchases:[], consumption:{}},
+  init:function(){
+    if (window.Telegram && window.Telegram.WebApp) {
+      try{ window.Telegram.WebApp.ready(); window.Telegram.WebApp.expand(); }catch(e){}
+    }
+    this.load();
+    this.render();
+  },
+  load:function(){
+    try{
+      const saved = localStorage.getItem('partyCalcData');
+      if(saved){
+        const d = JSON.parse(saved);
+        if (d && Array.isArray(d.participants)){
+          const validPurchases = (d.purchases||[]).filter(p => d.participants.some(pp=>pp.id===p.buyerId));
+          this.data.participants = d.participants||[];
+          this.data.purchases = validPurchases;
+          this.data.consumption = d.consumption||{};
+          return;
+        }
+      }
+    }catch(e){ console.warn('load fail', e); localStorage.removeItem('partyCalcData'); }
+  },
+  save:function(){ localStorage.setItem('partyCalcData', JSON.stringify(this.data)); },
+  showTab:function(t, el){
+    ['participants','purchases','consumption','results','help'].forEach(x=>{
+      const pane = document.getElementById('tab-'+x);
+      if (!pane) return;
+      if (x===t){ pane.classList.remove('hidden'); pane.classList.add('active'); }
+      else { pane.classList.add('hidden'); pane.classList.remove('active'); }
+    });
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    if (el) el.classList.add('active');
+    if (t==='results') this.renderResults(); // обновлять перед экспортом
+  },
+  addParticipant:function(){
+    const v = (document.getElementById('new-participant').value||'').trim();
+    if(!v) return;
+    this.data.participants.push({id: Date.now(), name: v});
+    document.getElementById('new-participant').value='';
+    this.save(); this.render();
+  },
+  deleteParticipant:function(id){
+    if(!confirm('Удалить?')) return;
+    this.data.participants = this.data.participants.filter(p=>p.id!==id);
+    this.save(); this.render();
+  },
+  addPurchase:function(){
+    if(!this.data.participants.length){ alert('Сначала добавьте участников!'); return; }
+    const b = parseInt(document.getElementById('purchase-buyer').value);
+    const i = (document.getElementById('purchase-item').value||'').trim();
+    const p = parseFloat(document.getElementById('purchase-price').value);
+    const q = parseFloat(document.getElementById('purchase-quantity').value);
+    if(!i || isNaN(p) || isNaN(q)) return;
+    this.data.purchases.push({id:Date.now(), buyerId:b, item:i, price:p, quantity:q});
+    // очистка полей
+    document.getElementById('purchase-item').value='';
+    document.getElementById('purchase-price').value='';
+    document.getElementById('purchase-quantity').value='';
+    this.save(); this.render();
+  },
+  deletePurchase:function(id){
+    if(!confirm('Удалить?')) return;
+    this.data.purchases = this.data.purchases.filter(p=>p.id!==id);
+    this.save(); this.render();
+  },
+  getGroupedPurchases:function(){
+    const groups={};
+    this.data.purchases.forEach(p=>{
+      const key = p.item+'-'+p.price;
+      if(!groups[key]) groups[key]={key, item:p.item, price:p.price, totalQuantity:0, purchases:[]};
+      groups[key].totalQuantity += p.quantity;
+      groups[key].purchases.push(p);
+    });
+    return Object.values(groups);
+  },
+  updateConsumption:function(gkey, uid, v){
+    const table = document.querySelector('.consumption-table');
+    const scrollPos = table ? table.scrollLeft : 0;
+    const num = parseFloat(v);
+    this.data.consumption[gkey+'-'+uid] = isNaN(num)?0:num;
+    this.save(); this.renderConsumption();
+    requestAnimationFrame(()=>{ const t = document.querySelector('.consumption-table'); if(t) t.scrollLeft = scrollPos; });
+  },
+  quickSet:function(gkey, uid, f, tot, cnt){
+    const table = document.querySelector('.consumption-table');
+    const scrollPos = table ? table.scrollLeft : 0;
+    let v=0;
+    if(f==='0') v=0;
+    else if(f==='all') v=tot;
+    else if(f.includes('/')){
+      const [n,d] = f.split('/').map(parseFloat);
+      const others = this.data.participants.reduce((s,pa)=> pa.id===uid?s:s+(this.data.consumption[gkey+'-'+pa.id]||0),0);
+      const remaining = tot - others;
+      const exact = tot*n/d;
+      v = Math.min(remaining, Math.round(exact*100)/100);
+    }
+    this.data.consumption[gkey+'-'+uid] = v;
+    this.save(); this.renderConsumption();
+    requestAnimationFrame(()=>{ const t = document.querySelector('.consumption-table'); if(t) t.scrollLeft = scrollPos; });
+  },
+  autoDistributePurchase:function(gkey){
+    const group = this.getGroupedPurchases().find(g=>g.key===gkey); if(!group) return;
+    const cnt = this.data.participants.length;
+    const per = group.totalQuantity/cnt;
+    let distributed=0;
+    this.data.participants.forEach((pa,i)=>{
+      if(i===cnt-1) this.data.consumption[group.key+'-'+pa.id] = Math.round((group.totalQuantity-distributed)*100)/100;
+      else { const s = Math.round(per*100)/100; this.data.consumption[group.key+'-'+pa.id]=s; distributed+=s; }
+    });
+    this.save(); this.renderConsumption();
+  },
+  autoDistribute:function(){
+    if(!confirm('Распределить ВСЕ продукты поровну?')) return;
+    this.data.consumption={};
+    const gps = this.getGroupedPurchases();
+    gps.forEach(group=>{
+      const cnt = this.data.participants.length;
+      const per = group.totalQuantity/cnt;
+      let distributed=0;
+      this.data.participants.forEach((pa,i)=>{
+        if(i===cnt-1) this.data.consumption[group.key+'-'+pa.id] = Math.round((group.totalQuantity-distributed)*100)/100;
+        else { const s = Math.round(per*100)/100; this.data.consumption[group.key+'-'+pa.id]=s; distributed+=s; }
+      });
+    });
+    this.save(); this.renderConsumption();
+  },
+  clearConsumption:function(){
+    if(!confirm('Очистить таблицу потребления?')) return;
+    this.data.consumption={}; this.save(); this.renderConsumption();
+  },
+  getConsumptionStatus:function(groupKey){
+    const group = this.getGroupedPurchases().find(g=>g.key===groupKey);
+    if(!group) return {filled:0,total:0,percent:0,status:'warn'};
+    const filled = this.data.participants.reduce((s,pa)=> s + (parseFloat(this.data.consumption[groupKey+'-'+pa.id])||0), 0);
+    const total = group.totalQuantity;
+    const percent = total? (filled/total)*100 : 0;
+    let status='warn'; if(percent>100.5) status='error'; else if(percent>=99.5 && percent<=100.5) status='ok';
+    return {filled:Math.round(filled*100)/100,total,percent,status};
+  },
+  calculateResults:function(){
+    const groups = this.getGroupedPurchases();
+    return this.data.participants.map(pa=>{
+      const spent = this.data.purchases.filter(p=>p.buyerId===pa.id).reduce((s,p)=>s+p.price*p.quantity,0);
+      const shouldPay = groups.reduce((s,g)=> s + ((this.data.consumption[g.key+'-'+pa.id]||0)*g.price), 0);
+      return {id:pa.id,name:pa.name,spent,shouldPay,balance:spent-shouldPay};
+    });
+  },
+  calculateTransfers:function(){
+    const r = this.calculateResults();
+    const deb = r.filter(x=>x.balance<0).sort((a,b)=>a.balance-b.balance);
+    const cred = r.filter(x=>x.balance>0).sort((a,b)=>b.balance-a.balance);
+    const tr=[]; let i=0,j=0;
+    while(i<deb.length && j<cred.length){
+      const amt = Math.min(Math.abs(deb[i].balance), cred[j].balance);
+      if(amt>0.01) tr.push({from:deb[i].name,to:cred[j].name,amount:Math.round(amt)});
+      deb[i].balance += amt; cred[j].balance -= amt;
+      if(Math.abs(deb[i].balance)<0.01) i++;
+      if(Math.abs(cred[j].balance)<0.01) j++;
+    }
+    return tr;
+  },
+  exportResultsText:function(){
+    const r=this.calculateResults(), tr=this.calculateTransfers();
+    const tot = this.data.purchases.reduce((s,p)=>s+p.price*p.quantity,0);
+    let text='📊 РАСЧЁТ РАСХОДОВ\n\nИмя        | Потратил | Должен | Баланс\n---------------------------------------\n';
+    r.forEach(x=>{
+      const name=(x.name+'          ').substring(0,10);
+      const spent=(Math.round(x.spent)+'₽').padStart(8);
+      const should=(Math.round(x.shouldPay)+'₽').padStart(7);
+      const bal=(((x.balance>=0?'+':'')+Math.round(x.balance)+'₽')).padStart(8);
+      text+=`${name}| ${spent} | ${should} | ${bal}\n`;
+    });
+    text+=`\n💰 Общая сумма: ${Math.round(tot)}₽\n`;
+    const transfers=this.calculateTransfers();
+    if(transfers.length){ text+='\n💸 Кто кому должен:\n'; transfers.forEach(t=> text+=`• ${t.from} → ${t.to}: ${t.amount}₽\n`); }
+    text+='\n📱 Рассчитано в Party Calculator';
+    if(navigator.share) navigator.share({text}).catch(()=>navigator.clipboard.writeText(text));
+    else if(navigator.clipboard) navigator.clipboard.writeText(text).then(()=>alert('Скопировано в буфер обмена'));
+    else { const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); alert('Скопировано'); }
+  },
+  exportResultsPNG:function(){
+    const node = document.getElementById('tab-results');
+    html2canvas(node,{scale:2,backgroundColor: getComputedStyle(document.body).backgroundColor}).then(canvas=>{
+      const a=document.createElement('a');
+      a.href=canvas.toDataURL('image/png');
+      a.download='party-calculator.png';
+      a.click();
+    });
+  },
+  render:function(){
+    this.renderParticipants();
+    this.renderPurchases();
+    this.renderConsumption();
+    this.renderResults();
+    this.renderHelp();
+  },
+  renderParticipants:function(){
+    const r = this.calculateResults();
+    let h = `<div class="section"><div class="section-header">Участники (${this.data.participants.length})</div>`;
+    for (const p of this.data.participants){
+      const res = r.find(x=>x.id===p.id) || {spent:0,balance:0};
+      h += `<div class="list-item">
+        <div class="list-item-icon">${(p.name||'?')[0].toUpperCase()}</div>
+        <div class="list-item-content">
+          <div class="list-item-title">${p.name}</div>
+          <div class="list-item-subtitle">Потратил ${Math.round(res.spent)}₽</div>
+        </div>
+        <div style="font-weight:700;color:${(res.balance>=0?'#34C759':'#FF3B30')}">${(res.balance>=0?'+':'')+Math.round(res.balance)}₽</div>
+        <button class="delete-btn" onclick="app.deleteParticipant(${p.id})">🗑️</button>
+      </div>`;
+    }
+    h += `</div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <input type="text" id="new-participant" class="form-input" placeholder="Имя участника">
+        <button class="btn btn-primary" style="width:auto;padding:12px 24px" onclick="app.addParticipant()">+</button>
+      </div>
+      <div style="margin-top:12px;text-align:center">
+        <button onclick="if(confirm('Удалить ВСЕ данные?')){localStorage.clear(); app.data={participants:[],purchases:[],consumption:{}}; app.save(); app.render();}" class="btn" style="background:#FF3B30;color:#fff">🗑️ Сбросить все данные</button>
+      </div>`;
+    document.getElementById('tab-participants').innerHTML = h;
+  },
+  renderPurchases:function(){
+    const tot = this.data.purchases.reduce((s,p)=>s+p.price*p.quantity,0);
+    let h = `<div class="section"><div class="section-header">Новая покупка</div><div style="padding:16px">`;
+    if(!this.data.participants.length){
+      h += `<div style="padding:20px;text-align:center;color:var(--tg-theme-hint-color)">Сначала добавьте участников</div>`;
+    }else{
+      h += `<div style="margin-bottom:12px">
+              <label style="display:block;font-size:14px;font-weight:600;margin-bottom:6px">Кто купил?</label>
+              <select id="purchase-buyer" class="form-input">`;
+      this.data.participants.forEach(p=> h += `<option value="${p.id}">${p.name}</option>`);
+      h += `</select></div>
+            <div style="margin-bottom:12px">
+              <label style="display:block;font-size:14px;font-weight:600;margin-bottom:6px">Товар</label>
+              <input type="text" id="purchase-item" class="form-input" placeholder="Например, Пицца">
+            </div>
+            <div style="display:flex;gap:12px;margin-bottom:12px">
+              <div style="flex:1"><label style="display:block;font-size:14px;font-weight:600;margin-bottom:6px">Цена</label>
+                <input type="number" id="purchase-price" class="form-input" placeholder="0">
+              </div>
+              <div style="flex:1"><label style="display:block;font-size:14px;font-weight:600;margin-bottom:6px">Кол-во</label>
+                <input type="number" id="purchase-quantity" class="form-input" placeholder="0" step="0.1">
+              </div>
+            </div>
+            <button class="btn btn-primary" onclick="app.addPurchase()">Добавить</button>`;
+    }
+    h += `</div></div>`;
+    if(this.data.purchases.length){
+      h += `<div class="section" style="margin-top:16px"><div class="section-header">Покупки (${this.data.purchases.length})</div>`;
+      this.data.purchases.forEach(p=>{
+        const b = this.data.participants.find(x=>x.id===p.buyerId); if(!b) return;
+        h += `<div class="purchase-card">
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:13px;color:var(--tg-theme-hint-color)">Купил: ${b.name}</span>
+              <span style="font-size:18px;font-weight:700;color:var(--tg-theme-link-color)">${Math.round(p.price*p.quantity)}₽</span>
+            </div>
+            <div style="font-size:16px;font-weight:600">${p.item}</div>
+            <div style="font-size:13px;color:var(--tg-theme-hint-color)">${p.price}₽ × ${p.quantity} шт</div>
+          </div>
+          <button class="delete-btn" onclick="app.deletePurchase(${p.id})">🗑️</button>
+        </div>`;
+      });
+      h += `</div>
+      <div style="text-align:right;margin-top:12px;padding:12px;background:#0f1924;border-radius:12px">
+        <div style="font-size:13px;color:var(--tg-theme-hint-color)">Всего</div>
+        <div style="font-size:24px;font-weight:800;color:var(--tg-theme-link-color)">${Math.round(tot)}₽</div>
+      </div>`;
+    }
+    document.getElementById('tab-purchases').innerHTML = h;
+  },
+  renderConsumption:function(){
+    const groups = this.getGroupedPurchases();
+    let h = `<div style="background:#0f1924;padding:12px;border-radius:12px;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:600;margin-bottom:8px">Быстрое распределение:</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-small" onclick="app.autoDistribute()">Все поровну</button>
+        <button class="btn-small" onclick="app.clearConsumption()">Очистить всё</button>
+      </div></div>`;
+    h += `<div class="consumption-table"><table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead><tr><th style="text-align:left">Участник</th>`;
+    groups.forEach(group=>{
+      const st=this.getConsumptionStatus(group.key);
+      let cls='status-ok', icon='✓';
+      if(st.status==='error'){cls='status-error';icon='⚠';}
+      else if(st.status==='warn'){cls='status-warn';icon='⚠';}
+      h += `<th style="min-width:220px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <span style="font-weight:700">${group.item} (${group.price}₽)</span>
+          <button class="btn-small" onclick="app.autoDistributePurchase('${group.key}')">Поровну</button>
+        </div>
+        <div class="${cls}" style="font-size:12px">${icon} ${st.filled} / ${st.total} шт${st.status==='error'?' <strong>(перебор!)</strong>':(st.status==='warn' && st.filled>0?' <strong>(недозаполнено)</strong>':'')}</div>
+      </th>`;
+    });
+    h += `</tr></thead><tbody>`;
+    this.data.participants.forEach(pa=>{
+      h += `<tr><td style="font-weight:700">${pa.name}</td>`;
+      groups.forEach(group=>{
+        const k = group.key+'-'+pa.id;
+        const v = this.data.consumption[k]||0;
+        const cnt = this.data.participants.length;
+        h += `<td><div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="number" value="${v}" step="0.01" onchange="app.updateConsumption('${group.key}', ${pa.id}, this.value)" class="form-input" style="width:80px;text-align:center">
+          <select onchange="if(this.value){app.quickSet('${group.key}',${pa.id},this.value,${group.totalQuantity},${cnt});this.value='';}" class="form-input" style="width:auto;padding:8px">
+            <option value="">Доля</option>
+            <option value="0">Не ел</option>`;
+        for(let d=cnt; d>=2; d--){ h += `<option value="1/${d}">1/${d}</option>`; }
+        h += `<option value="all">Всё</option></select></div></td>`;
+      });
+      h += `</tr>`;
+    });
+    h += `</tbody></table></div>`;
+    document.getElementById('tab-consumption').innerHTML = h;
+  },
+  renderResults:function(){
+    const r=this.calculateResults(), tr=this.calculateTransfers();
+    let h = `<div class="section"><div class="section-header">Баланс</div>`;
+    r.forEach(x=>{
+      h += `<div class="result-card">
+        <div style="font-size:18px;font-weight:700;margin-bottom:6px">${x.name}</div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--tg-theme-hint-color)">Потратил</span><span style="font-weight:700">${Math.round(x.spent)}₽</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--tg-theme-hint-color)">Должен</span><span style="font-weight:700">${Math.round(x.shouldPay)}₽</span></div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;"><span style="color:var(--tg-theme-hint-color)">Баланс</span><span style="font-weight:800;color:${(x.balance>=0?'#34C759':'#FF3B30')}">${(x.balance>=0?'+':'')+Math.round(x.balance)}₽</span></div>
+      </div>`;
+    });
+    h += `</div>`;
+    if(tr.length){
+      h += `<div class="section" style="margin-top:16px"><div class="section-header">Переводы</div>`;
+      tr.forEach(t=> h += `<div class="transfer-card"><div>${t.from} → ${t.to}</div><div style="font-size:24px;font-weight:900;margin-top:6px">${t.amount}₽</div></div>`);
+      h += `</div>`;
+    }
+    h += `<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-secondary" onclick="app.exportResultsPNG()">🖼️ Сохранить PNG</button>
+      <button class="btn btn-primary" onclick="app.exportResultsText()">📋 Скопировать текст</button>
+    </div>`;
+    document.getElementById('tab-results').innerHTML = h;
+  },
+  renderHelp:function(){
+    let h = `<div class="section"><div class="section-header">Как пользоваться</div>
+      <div class="faq-item"><div class="faq-question">📝 Шаг 1: Добавьте участников</div><div class="faq-answer">Во вкладке «Участники» внесите имена всех участников. Можно добавлять и удалять в любой момент.</div></div>
+      <div class="faq-item"><div class="faq-question">🛒 Шаг 2: Внесите покупки</div><div class="faq-answer">Укажите покупателя, товар, цену и количество.</div></div>
+      <div class="faq-item"><div class="faq-question">🍕 Шаг 3: Распределите потребление</div><div class="faq-answer">В «Потреблении» укажите кто сколько съел/выпил. Кнопка «Поровну» поможет быстро распределить.</div></div>
+      <div class="faq-item"><div class="faq-question">💰 Шаг 4: Результаты</div><div class="faq-answer">Баланс по каждому и список переводов. Нажмите «Сохранить PNG» или «Скопировать текст» для отправки в чат.</div></div>
+    </div>
+    <div class="developer-card">
+      <div style="font-size:20px;font-weight:800;margin-bottom:8px">👨‍💻 Разработчик</div>
+      <div style="font-size:18px;margin-bottom:6px">Владимир Васякин</div>
+      <div style="opacity:.9">📧 e@mailvladimir.ru</div>
+      <div style="margin-top:10px;opacity:.8;font-size:14px">По вопросам и предложениям пишите на почту</div>
+    </div>`;
+    document.getElementById('tab-help').innerHTML = h;
+  }
+};
+window.onload = function(){ app.init(); };
+</script>
+</body>
+</html>
