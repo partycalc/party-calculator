@@ -29,7 +29,7 @@
     }
     .header { background: var(--tg-theme-bg-color); padding: 12px 16px; border-bottom: 1px solid #e5e5ea; position: sticky; top: 0; z-index: 100; }
     .header-title { font-size: 17px; font-weight: 600; text-align: center; }
-    .tabs { display: flex; background: var(--tg-theme-secondary-bg-color); border-bottom: 1px solid #e5e5ea; overflow-x: auto; }
+    .tabs { display: flex; background: var(--tg-theme-secondary-bg-color); border-bottom: 1px solid #e5e5ea; overflow-x: auto; position: sticky; top: 44px; z-index: 99; }
     .tab { flex: 1; min-width: 80px; padding: 12px; text-align: center; background: none; border: none; font-size: 15px; color: var(--tg-theme-hint-color); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
     .tab.active { color: var(--tg-theme-link-color); border-bottom-color: var(--tg-theme-link-color); font-weight: 500; }
     .content { padding: 16px; }
@@ -59,7 +59,7 @@
     .faq-answer { font-size: 14px; line-height: 1.5; color: var(--tg-theme-text-color); }
     .developer-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; padding: 20px; margin: 16px 0; text-align: center; }
     /* Sticky first column for consumption table */
-    .sticky-col { position: sticky; left: 0; background: var(--tg-theme-bg-color); z-index: 1; }
+    .sticky-col { position: sticky; left: 0; background: var(--tg-theme-bg-color); z-index: 2; }
   </style>
 </head>
 <body>
@@ -167,6 +167,8 @@
         if (!i || isNaN(p)) return;
         this.data.purchases.push({id:Date.now(),buyerId:b,item:i,price:p,quantity:q});
         document.getElementById('purchase-item').value = '';
+        document.getElementById('purchase-price').value = '';
+        document.getElementById('purchase-quantity').value = '';
         document.getElementById('purchase-price').value = '';
         document.getElementById('purchase-quantity').value = '1';
         this.saveData(); this.render();
@@ -291,31 +293,51 @@
       },
 
       exportResults: function() {
-        const r=this.calculateResults(), tr=this.calculateTransfers();
-        const tot=this.data.purchases.reduce((s,p)=>s+p.price*p.quantity,0);
-        let text='📊 РАСЧЁТ РАСХОДОВ\\n\\n';
-        text+='👥 Участники:\\n';
-        r.forEach(x=>{
-          text+='• '+x.name+': потратил '+Math.round(x.spent)+'₽, должен '+Math.round(x.shouldPay)+'₽\\n';
-          text+='  Баланс: '+(x.balance>=0?'+':'')+Math.round(x.balance)+'₽\\n';
-        });
-        text+='\\n💰 Общая сумма: '+Math.round(tot)+'₽\\n';
-        if(tr.length){ text+='\\n💸 Кто кому должен:\\n'; tr.forEach(t=>{ text+='• '+t.from+' → '+t.to+': '+t.amount+'₽\\n'; }); }
-        text+='\\n📱 Рассчитано в Party Calculator';
-        const copyToClipboard = (txt)=>{
-          if(navigator.clipboard && navigator.clipboard.writeText){
-            navigator.clipboard.writeText(txt).then(()=>alert('✅ Результаты скопированы в буфер обмена!'));
-          } else {
-            const ta=document.createElement('textarea'); ta.value=txt; ta.style.position='fixed'; ta.style.opacity='0';
-            document.body.appendChild(ta); ta.focus(); ta.select();
-            try{ document.execCommand('copy'); alert('✅ Результаты скопированы!'); }catch(e){ alert(txt); }
-            document.body.removeChild(ta);
-          }
-        };
-        if(navigator.share){ navigator.share({text:text}).catch(()=>copyToClipboard(text)); }
-        else { copyToClipboard(text); }
-      },
+        const r = this.calculateResults();
+        const tr = this.calculateTransfers();
+        const tot = this.data.purchases.reduce((s,p)=>s+p.price*p.quantity,0);
 
+        let text = '💰 Общий чек: ' + Math.round(tot) + '₽
+
+';
+        text += '👥 Участники:
+';
+        r.forEach(x=>{
+          text += '• ' + x.name + '
+';
+          text += '  Употребил: ' + Math.round(x.shouldPay) + '₽
+';
+          text += '  Потратил: ' + Math.round(x.spent) + '₽
+';
+          text += '  Баланс: ' + (x.balance>=0?'+':'') + Math.round(x.balance) + '₽
+
+';
+        });
+
+        if(tr.length){ 
+          text += '💸 Итоги переводов:
+';
+          tr.forEach(t=>{ text += '• ' + t.from + ' → ' + t.to + ': ' + t.amount + '₽
+'; });
+        }
+
+        text += '
+📱 Рассчитано в Party Calculator';
+
+        if(navigator.share){
+          navigator.share({text:text});
+        } else if(navigator.clipboard){
+          navigator.clipboard.writeText(text).then(()=>alert('Результаты скопированы в буфер обмена!'));
+        } else {
+          const ta=document.createElement('textarea');
+          ta.value=text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+          alert('Результаты скопированы!');
+        }
+      },
       render: function(){
         this.renderParticipants(); this.renderPurchases(); this.renderConsumption(); this.renderResults(); this.renderHelp();
       },
@@ -409,7 +431,7 @@
           else if(st.status==='warn'){ statusClass='status-warn'; statusIcon='⚠'; }
           h+='<th style="background:var(--tg-theme-secondary-bg-color);padding:10px 8px;min-width:220px">'
             +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">'
-            +'<span style="font-weight:600">'+group.item+'</span>'
+            +'<span style="font-weight:600">'+group.item+' ('+group.price+'₽)</span>'
             +'<button class="btn-small" onclick="app.autoDistributePurchase(\''+group.key+'\')">Поровну</button></div>'
             +'<div class="'+statusClass+'" style="font-weight:normal;font-size:12px;margin-top:4px">'
             +statusIcon+' '+st.filled+' / '+st.total+' шт'
