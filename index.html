@@ -30,7 +30,7 @@
     .header { background: var(--tg-theme-bg-color); padding: 12px 16px; border-bottom: 1px solid #e5e5ea; position: sticky; top: 0; z-index: 100; }
     .header-title { font-size: 17px; font-weight: 600; text-align: center; }
     .tabs { display: flex; background: var(--tg-theme-secondary-bg-color); border-bottom: 1px solid #e5e5ea; overflow-x: auto; }
-    .tab { flex: 1; min-width: 80px; padding: 12px; text-align: center; background: none; border: none; font-size: 15px; color: var(--tg-theme-hint-color); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
+    .tab {  min-width: 100px; padding: 12px; text-align: center; background: none; border: none; font-size: 15px; color: var(--tg-theme-hint-color); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap;  flex: none; white-space: nowrap; }
     .tab.active { color: var(--tg-theme-link-color); border-bottom-color: var(--tg-theme-link-color); font-weight: 500; }
     .content { padding: 16px; }
     .section { background: var(--tg-theme-bg-color); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
@@ -172,6 +172,8 @@
         document.getElementById('purchase-price').value = '';
         document.getElementById('purchase-quantity').value = '';
         document.getElementById('purchase-price').value = '';
+        document.getElementById('purchase-quantity').value = '';
+        document.getElementById('purchase-price').value = '';
         document.getElementById('purchase-quantity').value = '1';
         this.saveData(); this.render();
       },
@@ -294,7 +296,7 @@
         return tr;
       },
 
-      exportResults: function() {
+      exportResultsPNG: function() {
         const r = this.calculateResults();
         const tr = this.calculateTransfers();
         const tot = this.data.purchases.reduce((s,p)=>s+p.price*p.quantity,0);
@@ -338,7 +340,38 @@
           console.error('Ошибка генерации PNG:', err);
           alert('Не удалось создать картинку, используйте текстовый экспорт.');
         });
-      }, 0);
+      },
+      exportResultsText: function() {
+        const r = this.calculateResults();
+        const tr = this.calculateTransfers();
+        const tot = this.data.purchases.reduce((s,p)=>s+p.price*p.quantity,0);
+
+        let text = '📊 РАСЧЁТ РАСХОДОВ\n';
+        text += '=====================\n\n';
+        text += 'Имя        | Потратил | Должен | Баланс\n';
+        text += '---------------------------------------\n';
+        r.forEach(x=>{
+          const spent = (Math.round(x.spent)+'₽').padStart(8);
+          const shouldPay = (Math.round(x.shouldPay)+'₽').padStart(6);
+          const balance = (((x.balance>=0?'+':'')+Math.round(x.balance)+'₽')).padStart(7);
+          const name = (x.name+'          ').substring(0,10);
+          text += name + '| ' + spent + ' | ' + shouldPay + ' | ' + balance + '\n';
+        });
+        text += '\n💰 Общая сумма: ' + Math.round(tot) + '₽\n';
+        text += '=====================\n';
+        if (tr.length) {
+          text += '\n💸 Кто кому должен:\n';
+          tr.forEach(t=>{ text += '• '+t.from+' → '+t.to+': '+t.amount+'₽\n'; });
+        }
+        text += '\n📱 Рассчитано в Party Calculator';
+        if (navigator.share) { navigator.share({text}); }
+        else if (navigator.clipboard) { navigator.clipboard.writeText(text).then(()=>alert('Скопировано в буфер обмена')); }
+        else {
+          const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta); ta.select();
+          document.execCommand('copy'); document.body.removeChild(ta); alert('Скопировано');
+        }
+      },
+     0);
 
         let text = '📊 РАСЧЁТ РАСХОДОВ\n';
         text += '=====================\n\n';
@@ -523,7 +556,8 @@
           });
           h+='</div>';
         }
-        h+='<div style="margin-top:16px"><button class="btn btn-secondary" onclick="app.exportResults()">📤 Поделиться результатами</button></div>';
+        h+='<div style="margin-top:16px"><button class="btn btn-secondary" onclick="app.exportResultsPNG()">🖼️ Сохранить PNG</button>
+  <div style="margin-top:12px"><button class="btn btn-primary" onclick="app.exportResultsText()">📋 Скопировать текст</button></div></div>';
         document.getElementById('tab-results').innerHTML=h;
       },
 
@@ -550,8 +584,8 @@
 
 <script>
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js")
-      .then(() => console.log("Service Worker зарегистрирован"));
+    navigator.serviceWorker.register("service-worker.v2.js", {updateViaCache:"none"})
+      .then(() => console.log("Service Worker зарегистрирован"); if (navigator.serviceWorker && navigator.serviceWorker.controller) {navigator.serviceWorker.controller.postMessage({type:'CHECK_UPDATE'});});
   }
 </script>
 
