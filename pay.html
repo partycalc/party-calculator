@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Перевод через СБП — Party Calculator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #0f172a;
+      color: #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 1.5em;
+      margin-bottom: 20px;
+    }
+    #qr {
+      margin-top: 20px;
+    }
+    button {
+      margin-top: 30px;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      background-color: #2563eb;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #1e40af;
+    }
+    .note {
+      margin-top: 25px;
+      font-size: 0.9em;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚀 Перевод разработчику Party Calculator</h1>
+  <p>Попробуем открыть ваш банк для перевода через СБП...</p>
+  <div id="qr"></div>
+  <button id="openBank">Открыть в банковском приложении</button>
+  <div class="note">Если не открылось — отсканируйте QR-код камерой банка<br>или нажмите кнопку выше</div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+  <script>
+    const phone = "79033980117";
+    const amount = "200";
+    const comment = encodeURIComponent("На пиво разработчику 🍻");
+    const sbpUrl = `sbp://pay?phone=${phone}&amount=${amount}&comment=${comment}`;
+    const fallback = `https://qr.nspk.ru/transfer/${phone}?sum=${amount}&message=${comment}`;
+
+    setTimeout(() => {
+      window.location.href = sbpUrl;
+    }, 500);
+
+    QRCode.toCanvas(document.createElement("canvas"), fallback, { width: 220 }, (err, canvas) => {
+      if (!err) document.getElementById("qr").appendChild(canvas);
+    });
+
+    document.getElementById("openBank").addEventListener("click", () => {
+      window.location.href = sbpUrl;
+      setTimeout(() => window.location.href = fallback, 2000);
+    });
+  </script>
+</body>
+</html>
