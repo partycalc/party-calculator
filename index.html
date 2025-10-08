@@ -14,7 +14,7 @@
     body{
       margin:0;
       font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;
-      background:var(--tg-theme-bg-color,#0b1620);
+      background:var(--tg-theme-bg-color,#0f172a);
       color:var(--tg-theme-text-color,#e5e7eb);
       -webkit-tap-highlight-color:transparent
     }
@@ -127,7 +127,12 @@
 
 <script>
 (function(){
-  const LS_KEY='partycalc_v3';
+  const LS_KEY = 'partycalc_v3';
+  const CLOUD_PREFIX = 'pcv3_';
+  const CLOUD_META = CLOUD_PREFIX + 'meta';
+  const CLOUD_CHUNK = CLOUD_PREFIX + 'p';
+  const CLOUD_CHUNK_SIZE = 3800; // запас от 4096 лимита
+
   const DONATE_PHONE_RAW='79033980117';
   const DONATE_PHONE_VIEW='+7 903 398-01-17';
   const DEV_EMAIL='e@mailvladimir.ru';
@@ -135,24 +140,100 @@
   try{ if(window.Telegram&&Telegram.WebApp){ Telegram.WebApp.ready(); Telegram.WebApp.expand(); } }catch(_){}
 
   const uid=()=>Math.floor(Math.random()*1e9);
-  const DEFAULT={participants:[{id:uid(),name:'Я'}],purchases:[],consumption:{},activeTab:'participants'};
+  const DEFAULT={
+    participants:[{id:uid(),name:'Я'}],
+    purchases:[],
+    consumption:{},
+    activeTab:'participants',
+    updatedAt: Date.now()
+  };
 
   const APP={
-    data:JSON.parse(localStorage.getItem(LS_KEY)||'null')||DEFAULT,
+    data: DEFAULT,
     _consScroll:0,
+    _saveTimer:null,
 
-    saveData(){ localStorage.setItem(LS_KEY, JSON.stringify(this.data)); },
+    async init(){
+      await this.loadPersisted();        // загрузка из localStorage + CloudStorage
+      this.renderTabs();
+      this.render();
+      this.initDonate();
+    },
+
+    /* ---------- Persistence ---------- */
+    cloudAvailable(){ return !!(window.Telegram && Telegram.WebApp && Telegram.WebApp.CloudStorage); },
+    cloudGet(key){ return new Promise(res=>{ try{ Telegram.WebApp.CloudStorage.getItem(key,(e,v)=>res(e?null:v)); }catch(_){ res(null); } }); },
+    cloudSet(key,val){ return new Promise(res=>{ try{ Telegram.WebApp.CloudStorage.setItem(key,String(val),()=>res(true)); }catch(_){ res(false); } }); },
+
+    async cloudLoad(){
+      if(!this.cloudAvailable()) return null;
+      const metaStr = await this.cloudGet(CLOUD_META);
+      if(!metaStr) return null;
+      let meta; try{ meta=JSON.parse(metaStr); }catch(_){ return null; }
+      const parts = +meta.parts || 0;
+      if(parts<=0) return null;
+      let json=''; 
+      for(let i=0;i<parts;i++){
+        const chunk = await this.cloudGet(CLOUD_CHUNK+i);
+        if(chunk==null){ json=null; break; }
+        json += chunk;
+      }
+      if(!json) return null;
+      try{ return JSON.parse(json); }catch(_){ return null; }
+    },
+
+    async cloudSave(){
+      if(!this.cloudAvailable()) return;
+      const json = JSON.stringify(this.data);
+      const parts = Math.ceil(json.length / CLOUD_CHUNK_SIZE);
+      for(let i=0;i<parts;i++){
+        const slice = json.slice(i*CLOUD_CHUNK_SIZE, (i+1)*CLOUD_CHUNK_SIZE);
+        await this.cloudSet(CLOUD_CHUNK+i, slice);
+      }
+      await this.cloudSet(CLOUD_META, JSON.stringify({parts, ts:this.data.updatedAt}));
+    },
+    cloudSaveDebounced(){
+      clearTimeout(this._saveTimer);
+      this._saveTimer = setTimeout(()=>{ this.cloudSave().catch(()=>{}); }, 350);
+    },
+
+    async loadPersisted(){
+      // 1) local
+      let local = null;
+      try{ local = JSON.parse(localStorage.getItem(LS_KEY)||'null'); }catch(_){}
+      // 2) cloud (может занять время)
+      const cloud = await this.cloudLoad();
+
+      // 3) выбрать самую свежую
+      const candidates = [local, cloud, DEFAULT].filter(Boolean);
+      candidates.sort((a,b)=> (b.updatedAt||0) - (a.updatedAt||0));
+      this.data = candidates[0] || DEFAULT;
+
+      // 4) гарантируем поля
+      if(!this.data.participants) this.data.participants=[];
+      if(!this.data.purchases) this.data.purchases=[];
+      if(!this.data.consumption) this.data.consumption={};
+      if(!this.data.activeTab) this.data.activeTab='participants';
+      if(!this.data.updatedAt) this.data.updatedAt=Date.now();
+
+      // 5) синхронизируем обратно локально
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(this.data)); }catch(_){}
+    },
+
+    saveData(){
+      this.data.updatedAt = Date.now();
+      try{ localStorage.setItem(LS_KEY, JSON.stringify(this.data)); }catch(_){}
+      this.cloudSaveDebounced();
+    },
+
+    /* ---------- Tabs / Render ---------- */
     setTab(k){ this.data.activeTab=k; this.saveData(); this.renderTabs(); this.syncTabs(); this.render(); },
-
-    init(){ this.renderTabs(); this.render(); this.initDonate(); },
-
     renderTabs(){
       const tabs=[['participants','Участники'],['purchases','Покупки'],['consumption','Потребление'],['results','Результаты'],['help','Помощь']];
       const el=document.getElementById('tabs'); el.innerHTML='';
       tabs.forEach(([k,l])=>{ const b=document.createElement('button'); b.className='tab'+(this.data.activeTab===k?' active':''); b.textContent=l; b.onclick=()=>this.setTab(k); el.appendChild(b); });
     },
     syncTabs(){ ['participants','purchases','consumption','results','help'].forEach(k=>{ document.getElementById('tab-'+k).style.display=(this.data.activeTab===k)?'block':'none'; }); },
-
     render(){
       this.renderParticipants();
       this.renderPurchases();
@@ -161,7 +242,7 @@
       this.renderHelp();
     },
 
-    /* УЧАСТНИКИ */
+    /* ---------- Participants ---------- */
     renderParticipants(){
       const h=[];
       h.push('<div class="section"><div class="section-header">Участники ('+this.data.participants.length+')</div>');
@@ -178,7 +259,7 @@
         this.data.participants.push({id:uid(),name:v}); this.saveData(); this.render();
       };
       const resetBtn=document.getElementById('resetAll');
-      if(resetBtn) resetBtn.onclick=()=>{ if(!confirm('Сбросить все данные?'))return; localStorage.removeItem(LS_KEY); this.data=JSON.parse(JSON.stringify(DEFAULT)); this.saveData(); this.setTab('participants'); };
+      if(resetBtn) resetBtn.onclick=()=>{ if(!confirm('Сбросить все данные?'))return; try{ localStorage.removeItem(LS_KEY);}catch(_){} this.data=JSON.parse(JSON.stringify(DEFAULT)); this.saveData(); this.setTab('participants'); };
 
       root.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{
         const id=+b.getAttribute('data-edit'); const p=this.data.participants.find(x=>x.id===id); if(!p) return;
@@ -194,7 +275,7 @@
       });
     },
 
-    /* ПОКУПКИ */
+    /* ---------- Purchases ---------- */
     renderPurchases(){
       const parts=this.data.participants; const h=[];
       h.push('<div class="section"><div class="section-header">Добавить покупку</div>');
@@ -241,7 +322,7 @@
       });
     },
 
-    /* ПОТРЕБЛЕНИЕ */
+    /* ---------- Consumption ---------- */
     renderConsumption(){
       const parts=this.data.participants, items=this.data.purchases, root=document.getElementById('tab-consumption');
 
@@ -300,7 +381,7 @@
       });
     },
 
-    /* РЕЗУЛЬТАТЫ */
+    /* ---------- Results ---------- */
     calculateResults(){
       const parts=this.data.participants, items=this.data.purchases, cons=this.data.consumption;
       const paid=Object.fromEntries(parts.map(p=>[p.id,0])); items.forEach(it=>{ if(paid[it.payerId]!=null) paid[it.payerId]+=it.amount; });
@@ -383,10 +464,10 @@
       }
     },
     copyText(t){
-      navigator.clipboard?.writeText(t).then(()=>alert('Текст скопирован. Вставьте в чат.')).catch(()=>alert('Скопируйте вручную: '+t));
+      navigator.clipboard?.writeText(t).then(()=>alert('Текст скопирован. Откройте мессенджер и вставьте.')).catch(()=>alert('Скопируйте вручную: '+t));
     },
 
-    /* ПОМОЩЬ */
+    /* ---------- Help ---------- */
     renderHelp(){
       const h=`
         <div class="section">
@@ -413,7 +494,7 @@
       document.getElementById('devEmailLink').onclick=(e)=>{ e.preventDefault(); this.openMail(); };
     },
 
-    /* DONATE / СБП */
+    /* ---------- Donate / SBP ---------- */
     initDonate(){
       const modal=document.getElementById('donateModal');
       modal?.addEventListener('click',(e)=>{ if(e.target===modal) this.showDonateModal(false); });
@@ -460,7 +541,7 @@
     }
   };
 
-  /* HELPERS */
+  /* ---------- Helpers ---------- */
   function parseNumber(v){ if(typeof v==='number') return v; if(!v) return NaN; const s=String(v).replace(',', '.').replace(/\s+/g,''); return parseFloat(s); }
   function fmt(n){ const s=(typeof n==='number'?n:parseNumber(n)); if(isNaN(s)) return '—'; return s.toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function escapeHTML(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
