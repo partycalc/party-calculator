@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Party Calculator — Final</title>
+  <title>Party Calculator — Final (Input Fix)</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -91,7 +91,7 @@
       letter-spacing: .02em;
     }
 
-    .row { display: flex; gap: 12px; }
+    .row { display: flex; gap: 8px; align-items:center; }
     .list-item {
       display: flex; align-items: center; gap: 12px;
       padding: 12px 14px; border-top: 1px solid #e5e7eb;
@@ -109,8 +109,9 @@
     .btn {
       padding: 13px 14px; border: none; border-radius: 10px; font-weight: 700;
       background: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color);
-      cursor: pointer; width: 100%;
+      cursor: pointer;
     }
+    .btn.full { width: 100%; }
     .btn.secondary { background: #34C759; }
     .btn.danger { background: #FF3B30; }
 
@@ -122,6 +123,7 @@
     .form-input {
       width: 100%; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 16px;
       background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color);
+      min-width: 0;
     }
 
     .purchase-card {
@@ -506,7 +508,7 @@
           ta.value = text; ta.readOnly = true;
           ta.style.cssText='width:100%;height:260px;border:1px solid #e5e7eb;border-radius:8px;padding:10px;font-family:monospace';
           const btn = document.createElement('button');
-          btn.className='btn'; btn.style.marginTop='12px'; btn.textContent='Закрыть';
+          btn.className='btn full'; btn.style.marginTop='12px'; btn.textContent='Закрыть';
           btn.onclick=()=> document.body.removeChild(modal);
           box.append(ttl, ta, btn); modal.appendChild(box); document.body.appendChild(modal);
           ta.focus(); ta.select();
@@ -539,10 +541,14 @@
         h += '</div>';
       });
       h += '</div>';
+
+      /* >>> FIXED 70/30 INPUT + BUTTON <<< */
       h += '<div class="row" style="margin-top:12px">';
-      h += '<input id="new-participant" class="form-input" placeholder="Имя участника">';
-      h += '<button class="btn" style="flex:0 0 auto; padding-inline:18px" onclick="APP.addParticipant()">Добавить</button>';
+      h += '<input id="new-participant" class="form-input" placeholder="Имя участника" style="flex:7; min-width:0;">';
+      h += '<button class="btn" style="flex:3; padding:12px 10px;" onclick="APP.addParticipant()">Добавить</button>';
       h += '</div>';
+      /* >>> END FIX <<< */
+
       h += '<div style="margin-top:12px;text-align:center">';
       h += '<button class="btn danger" style="width:auto" onclick="APP.resetAll()">🗑️ Сбросить все данные</button>';
       h += '</div>';
@@ -570,7 +576,7 @@
         h += '<input id="purchase-quantity" type="number" inputmode="decimal" class="form-input" placeholder="1"></div>';
         h += '</div>';
 
-        h += '<button class="btn" onclick="APP.addPurchase()">Добавить</button>';
+        h += '<button class="btn full" onclick="APP.addPurchase()">Добавить</button>';
       }
       h += '</div></div>';
 
@@ -672,8 +678,8 @@
       r.forEach(x => {
         h += '<div class="result-card">';
         h += '<div style="font-size:18px;font-weight:800;margin-bottom:6px">'+ x.name +'</div>';
-        h += '<div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--tg-theme-hint-color)">Потратил</span><span style="font-weight:700">'+ Math.round(x.spent) +'₽</span></div>';
-        h += '<div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--tg-theme-hint-color)">Должен</span><span style="font-weight:700">'+ Math.round(x.shouldPay) +'₽</span></div>';
+        h += '<div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--tg-theme-hint-color)">Потратил</span><span style="font-weight:700)">'+ Math.round(x.spent) +'₽</span></div>';
+        h += '<div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--tg-theme-hint-color)">Должен</span><span style="font-weight:700)">'+ Math.round(x.shouldPay) +'₽</span></div>';
         h += '<div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--tg-theme-hint-color)">Баланс</span><span style="font-weight:800;color:'+(x.balance>=0?'#34C759':'#FF3B30')+'">'+ (x.balance>=0?'+':'') + Math.round(x.balance) +'₽</span></div>';
         h += '</div>';
       });
@@ -688,7 +694,7 @@
         h += '</div>';
       }
 
-      h += '<div style="margin-top:12px"><button class="btn secondary" onclick="APP.exportResults()">📤 Поделиться результатами</button></div>';
+      h += '<div style="margin-top:12px"><button class="btn secondary full" onclick="APP.exportResults()">📤 Поделиться результатами</button></div>';
       document.getElementById('tab-results').innerHTML = h;
     },
 
