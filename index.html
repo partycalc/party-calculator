@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Party Calculator — Final (Input Fix)</title>
+  <title>Party Calculator — Orphan Auto-Clean</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     * { box-sizing: border-box; }
@@ -15,7 +15,6 @@
       color: var(--tg-theme-text-color, #111);
       -webkit-tap-highlight-color: transparent;
     }
-
     :root {
       --tg-theme-bg-color: #ffffff;
       --tg-theme-text-color: #000000;
@@ -25,169 +24,50 @@
       --tg-theme-button-text-color: #ffffff;
       --tg-theme-secondary-bg-color: #f4f4f5;
     }
-
-    .header {
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      background: var(--tg-theme-bg-color);
-      border-bottom: 1px solid #e5e7eb;
-      padding: 10px 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+    .header { position: sticky; top: 0; z-index: 50; background: var(--tg-theme-bg-color); border-bottom: 1px solid #e5e7eb; padding: 10px 16px; display:flex; align-items:center; justify-content:center; }
     .header-title { font-size: 17px; font-weight: 700; }
-
-    /* Sticky tabs */
-    .tabs-wrap {
-      position: sticky;
-      top: 48px; /* below header */
-      z-index: 49;
-      background: var(--tg-theme-bg-color);
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .tabs {
-      display: flex;
-      overflow-x: auto;
-      gap: 2px;
-      padding: 0 8px;
-      scrollbar-width: none;
-    }
+    .tabs-wrap { position: sticky; top: 48px; z-index: 49; background: var(--tg-theme-bg-color); border-bottom: 1px solid #e5e7eb; }
+    .tabs { display:flex; overflow-x:auto; gap: 2px; padding: 0 8px; scrollbar-width: none; }
     .tabs::-webkit-scrollbar { display: none; }
-    .tab {
-      flex: 0 0 auto;
-      padding: 12px 10px;
-      background: none;
-      border: none;
-      border-bottom: 2px solid transparent;
-      color: var(--tg-theme-hint-color);
-      font-size: 15px;
-      font-weight: 500;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    .tab.active {
-      color: var(--tg-theme-link-color);
-      border-bottom-color: var(--tg-theme-link-color);
-    }
-
+    .tab { flex:0 0 auto; padding: 12px 10px; background:none; border:none; border-bottom:2px solid transparent; color: var(--tg-theme-hint-color); font-size:15px; font-weight:500; cursor:pointer; white-space:nowrap; }
+    .tab.active { color: var(--tg-theme-link-color); border-bottom-color: var(--tg-theme-link-color); }
     .content { padding: 14px; }
-
-    .section {
-      background: var(--tg-theme-bg-color);
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 12px;
-      box-shadow: 0 0 0 1px #e5e7eb inset;
-    }
-    .section-header {
-      padding: 10px 14px;
-      background: var(--tg-theme-secondary-bg-color);
-      color: var(--tg-theme-hint-color);
-      text-transform: uppercase;
-      font-weight: 700;
-      font-size: 12px;
-      letter-spacing: .02em;
-    }
-
-    .row { display: flex; gap: 8px; align-items:center; }
-    .list-item {
-      display: flex; align-items: center; gap: 12px;
-      padding: 12px 14px; border-top: 1px solid #e5e7eb;
-    }
-    .list-item:first-child { border-top: none; }
-    .list-item-icon {
-      width: 40px; height: 40px; border-radius: 50%;
-      background: var(--tg-theme-link-color); color: #fff;
-      display: flex; align-items: center; justify-content: center; font-weight: 700;
-    }
-    .list-item-title { font-size: 16px; font-weight: 600; }
-    .list-item-subtitle { font-size: 13px; color: var(--tg-theme-hint-color); }
-    .pill-amount { font-weight: 700; }
-
-    .btn {
-      padding: 13px 14px; border: none; border-radius: 10px; font-weight: 700;
-      background: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color);
-      cursor: pointer;
-    }
-    .btn.full { width: 100%; }
-    .btn.secondary { background: #34C759; }
-    .btn.danger { background: #FF3B30; }
-
-    .btn-small {
-      padding: 6px 10px; border: 1px solid #e5e7eb; border-radius: 8px;
-      background: var(--tg-theme-bg-color); font-size: 12px; cursor: pointer;
-    }
-
-    .form-input {
-      width: 100%; padding: 12px; border: 1px solid #e5e7eb; border-radius: 10px; font-size: 16px;
-      background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color);
-      min-width: 0;
-    }
-
-    .purchase-card {
-      background: var(--tg-theme-secondary-bg-color);
-      border-radius: 12px; padding: 12px; margin: 10px 12px;
-      display: flex; gap: 12px; align-items: center;
-    }
-    .delete-btn {
-      width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
-      background: #FF3B30; color: #fff; font-size: 16px;
-    }
-
-    .result-card {
-      background: var(--tg-theme-secondary-bg-color);
-      border-radius: 12px; padding: 14px; margin: 12px;
-    }
-    .transfer-card {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff; border-radius: 12px; padding: 16px; margin: 12px; text-align: center;
-    }
-
-    /* Consumption table */
-    .consumption-wrap { overflow-x: auto; }
-    .consumption-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
-    .consumption-table th, .consumption-table td { border-bottom: 1px solid #e5e7eb; padding: 10px 8px; }
-    .consumption-table thead th { background: var(--tg-theme-secondary-bg-color); vertical-align: bottom; }
-    /* Sticky first column */
-    .sticky-col {
-      position: sticky; left: 0; z-index: 5;
-      background: var(--tg-theme-bg-color);
-    }
-
-    .prod-head {
-      display: flex; gap: 8px; align-items: center; justify-content: space-between;
-      min-width: 180px;
-    }
-    .prod-title {
-      display: inline-flex; flex-direction: column; align-items: flex-start; min-width: 0;
-    }
-    .prod-name {
-      font-weight: 700; max-width: 48vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .prod-price {
-      color: var(--tg-theme-hint-color); font-size: 12px; line-height: 1.2;
-    }
-
-    .status-ok { color: #34C759; font-weight: 700; font-size: 12px; }
-    .status-warn { color: #FF9500; font-weight: 700; font-size: 12px; }
-    .status-error { color: #FF3B30; font-weight: 700; font-size: 12px; }
-
-    .cell-flex {
-      display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-    }
-    .qty-input {
-      width: 72px; padding: 8px; border: 1px solid #e5e7eb; border-radius: 8px; text-align: center;
-    }
-    .fraction { padding: 6px; font-size: 12px; border-radius: 6px; border: 1px solid #e5e7eb; background: var(--tg-theme-bg-color); }
-
-    .developer-card {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff; border-radius: 12px; padding: 20px; margin: 16px 0; text-align: center;
-    }
-
-    .hidden { display: none !important; }
+    .section { background: var(--tg-theme-bg-color); border-radius: 12px; overflow: hidden; margin-bottom: 12px; box-shadow: 0 0 0 1px #e5e7eb inset; }
+    .section-header { padding: 10px 14px; background: var(--tg-theme-secondary-bg-color); color: var(--tg-theme-hint-color); text-transform: uppercase; font-weight: 700; font-size: 12px; letter-spacing: .02em; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .list-item { display:flex; align-items:center; gap:12px; padding:12px 14px; border-top:1px solid #e5e7eb; }
+    .list-item:first-child { border-top:none; }
+    .list-item-icon { width:40px; height:40px; border-radius:50%; background: var(--tg-theme-link-color); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; }
+    .list-item-title { font-size:16px; font-weight:600; }
+    .list-item-subtitle { font-size:13px; color: var(--tg-theme-hint-color); }
+    .pill-amount { font-weight:700; }
+    .btn { padding: 13px 14px; border:none; border-radius:10px; font-weight:700; background: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); cursor:pointer; }
+    .btn.full { width:100%; }
+    .btn.secondary { background:#34C759; }
+    .btn.danger { background:#FF3B30; }
+    .btn-small { padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background: var(--tg-theme-bg-color); font-size:12px; cursor:pointer; }
+    .form-input { width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:10px; font-size:16px; background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); min-width:0; }
+    .purchase-card { background: var(--tg-theme-secondary-bg-color); border-radius:12px; padding:12px; margin:10px 12px; display:flex; gap:12px; align-items:center; }
+    .delete-btn { width:36px; height:36px; border-radius:50%; border:none; cursor:pointer; background:#FF3B30; color:#fff; font-size:16px; }
+    .result-card { background: var(--tg-theme-secondary-bg-color); border-radius:12px; padding:14px; margin:12px; }
+    .transfer-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; border-radius:12px; padding:16px; margin:12px; text-align:center; }
+    .consumption-wrap { overflow-x:auto; }
+    .consumption-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; }
+    .consumption-table th, .consumption-table td { border-bottom:1px solid #e5e7eb; padding:10px 8px; }
+    .consumption-table thead th { background: var(--tg-theme-secondary-bg-color); vertical-align:bottom; }
+    .sticky-col { position:sticky; left:0; z-index:5; background: var(--tg-theme-bg-color); }
+    .prod-head { display:flex; gap:8px; align-items:center; justify-content:space-between; min-width:180px; }
+    .prod-title { display:inline-flex; flex-direction:column; align-items:flex-start; min-width:0; }
+    .prod-name { font-weight:700; max-width:48vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .prod-price { color: var(--tg-theme-hint-color); font-size:12px; line-height:1.2; }
+    .status-ok { color:#34C759; font-weight:700; font-size:12px; }
+    .status-warn { color:#FF9500; font-weight:700; font-size:12px; }
+    .status-error { color:#FF3B30; font-weight:700; font-size:12px; }
+    .cell-flex { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .qty-input { width:72px; padding:8px; border:1px solid #e5e7eb; border-radius:8px; text-align:center; }
+    .fraction { padding:6px; font-size:12px; border-radius:6px; border:1px solid #e5e7eb; background: var(--tg-theme-bg-color); }
+    .developer-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; border-radius:12px; padding:20px; margin:16px 0; text-align:center; }
+    .hidden { display:none !important; }
   </style>
 </head>
 <body>
@@ -221,7 +101,6 @@
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
       }
-      // Tabs
       document.getElementById('tabs').addEventListener('click', (e) => {
         const t = e.target.closest('.tab');
         if (!t) return;
@@ -236,12 +115,13 @@
         if (saved) {
           const data = JSON.parse(saved);
           if (data.participants !== undefined) {
-            const validPurchases = (data.purchases || []).filter(p =>
-              (data.participants || []).some(part => part.id === p.buyerId)
-            );
+            // restore
             this.data.participants = data.participants || [];
-            this.data.purchases = validPurchases;
+            this.data.purchases = (data.purchases || []).filter(p => p && p.item && !isNaN(parseFloat(p.price)) && !isNaN(parseFloat(p.quantity)));
             this.data.consumption = data.consumption || {};
+            // 🔧 автоочистка осиротевших ключей потребления
+            this.cleanOrphanData();
+            this.saveData();
             return;
           }
         }
@@ -256,6 +136,26 @@
       this.saveData();
     },
 
+    // 🧹 Удаление «висячих» записей потребления, если нет соответствующей покупки (groupKey = item-price)
+    cleanOrphanData() {
+      const validGroupKeys = new Set();
+      (this.data.purchases || []).forEach(p => {
+        if (!p || !p.item) return;
+        const price = parseFloat(p.price);
+        if (isNaN(price)) return;
+        const key = p.item + '-' + price;
+        validGroupKeys.add(key);
+      });
+      const cons = this.data.consumption || {};
+      Object.keys(cons).forEach(k => {
+        const groupKey = k.split('-').slice(0, -1).join('-'); // все, кроме последнего "-<userId>"
+        if (!validGroupKeys.has(groupKey)) {
+          delete cons[k];
+        }
+      });
+      this.data.consumption = cons;
+    },
+
     saveData() { localStorage.setItem('partyCalcData', JSON.stringify(this.data)); },
 
     showTab(tab, btnEl) {
@@ -265,7 +165,6 @@
       document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
       document.getElementById('tab-'+tab).classList.remove('hidden');
       if (btnEl) btnEl.classList.add('active');
-      // keep table horizontal scroll
       if (tab === 'consumption') {
         const el = document.querySelector('.consumption-wrap');
         if (el && this._consScroll !== undefined) el.scrollLeft = this._consScroll;
@@ -294,38 +193,49 @@
       const q = parseFloat(document.getElementById('purchase-quantity').value) || 1;
       if (!i || isNaN(p)) return;
       this.data.purchases.push({id:Date.now(),buyerId:b,item:i,price:p,quantity:q});
-      // auto clear inputs
+      // автоочистка и сохранение
+      this.cleanOrphanData();
+      this.saveData();
+      // очистка полей
       document.getElementById('purchase-item').value = '';
       document.getElementById('purchase-price').value = '';
       document.getElementById('purchase-quantity').value = '';
-      this.saveData(); this.render();
+      this.render();
     },
 
     deletePurchase(id) {
       if (!confirm('Удалить покупку?')) return;
       this.data.purchases = this.data.purchases.filter(p => p.id !== id);
+      this.cleanOrphanData();
       this.saveData(); this.render();
     },
 
     getGroupedPurchases() {
       const groups = {};
-      this.data.purchases.forEach(p => {
-        const key = p.item + '-' + p.price;
+      (this.data.purchases || []).forEach(p => {
+        if (!p || !p.item) return;
+        const price = parseFloat(p.price);
+        const qty = parseFloat(p.quantity);
+        if (isNaN(price) || isNaN(qty)) return;
+        const key = p.item + '-' + price;
         if (!groups[key]) {
-          groups[key] = { key, item: p.item, price: p.price, totalQuantity: 0, purchases: [] };
+          groups[key] = { key, item: p.item, price: price, totalQuantity: 0, purchases: [] };
         }
-        groups[key].totalQuantity += p.quantity;
+        groups[key].totalQuantity += qty;
         groups[key].purchases.push(p);
       });
-      return Object.values(groups);
+      // исключаем пустые группы
+      return Object.values(groups).filter(g => g.totalQuantity > 0);
     },
 
     getNameDupMap() {
-      // map name -> count of distinct prices
       const map = {};
-      this.data.purchases.forEach(p => {
+      (this.data.purchases || []).forEach(p => {
+        if (!p || !p.item) return;
+        const price = parseFloat(p.price);
+        if (isNaN(price)) return;
         if (!map[p.item]) map[p.item] = new Set();
-        map[p.item].add(p.price);
+        map[p.item].add(price);
       });
       const res = {};
       Object.keys(map).forEach(name => res[name] = map[name].size);
@@ -472,7 +382,6 @@
       const r = this.calculateResults();
       const tr = this.calculateTransfers();
       const tot = this.data.purchases.reduce((s,p)=> s + p.price*p.quantity, 0);
-
       let text = '📊 РАСЧЁТ РАСХОДОВ\n\n';
       text += '👥 Участники:\n';
       r.forEach(x => {
@@ -497,7 +406,6 @@
             throw new Error('share/clipboard not available');
           }
         } catch(e) {
-          // Fallback modal
           const modal = document.createElement('div');
           modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;padding:20px;overflow:auto';
           const box = document.createElement('div');
@@ -541,14 +449,10 @@
         h += '</div>';
       });
       h += '</div>';
-
-      /* >>> FIXED 70/30 INPUT + BUTTON <<< */
       h += '<div class="row" style="margin-top:12px">';
       h += '<input id="new-participant" class="form-input" placeholder="Имя участника" style="flex:7; min-width:0;">';
       h += '<button class="btn" style="flex:3; padding:12px 10px;" onclick="APP.addParticipant()">Добавить</button>';
       h += '</div>';
-      /* >>> END FIX <<< */
-
       h += '<div style="margin-top:12px;text-align:center">';
       h += '<button class="btn danger" style="width:auto" onclick="APP.resetAll()">🗑️ Сбросить все данные</button>';
       h += '</div>';
@@ -565,21 +469,17 @@
         h += '<select id="purchase-buyer" class="form-input">';
         this.data.participants.forEach(p => h += '<option value="'+p.id+'">'+p.name+'</option>');
         h += '</select></div>';
-
         h += '<div style="margin-bottom:12px"><label style="font-size:13px;font-weight:700;margin-bottom:6px;display:block">Товар</label>';
         h += '<input id="purchase-item" class="form-input" placeholder="Напр. Пицца"></div>';
-
         h += '<div class="row" style="margin-bottom:12px">';
         h += '<div style="flex:1"><label style="font-size:13px;font-weight:700;margin-bottom:6px;display:block">Цена</label>';
         h += '<input id="purchase-price" type="number" inputmode="decimal" class="form-input" placeholder="0"></div>';
         h += '<div style="flex:1"><label style="font-size:13px;font-weight:700;margin-bottom:6px;display:block">Кол-во</label>';
         h += '<input id="purchase-quantity" type="number" inputmode="decimal" class="form-input" placeholder="1"></div>';
         h += '</div>';
-
         h += '<button class="btn full" onclick="APP.addPurchase()">Добавить</button>';
       }
       h += '</div></div>';
-
       if (this.data.purchases.length) {
         h += '<div class="section" style="margin-top:12px"><div class="section-header">Покупки ('+this.data.purchases.length+')</div>';
         this.data.purchases.forEach(p => {
@@ -609,13 +509,11 @@
     renderConsumption() {
       const groups = this.getGroupedPurchases();
       const nameDup = this.getNameDupMap();
-
       let h = '';
       h += '<div style="background:var(--tg-theme-secondary-bg-color);padding:12px;border-radius:12px;margin-bottom:12px">';
       h += '<div style="font-size:14px;font-weight:700;margin-bottom:8px">Быстрое распределение</div>';
       h += '<div class="row"><button class="btn-small" onclick="APP.autoDistributeAll()">Все поровну</button>';
       h += '<button class="btn-small" onclick="APP.clearConsumption()">Очистить всё</button></div></div>';
-
       h += '<div class="consumption-wrap">';
       h += '<table class="consumption-table"><thead><tr>';
       h += '<th class="sticky-col">Участник</th>';
@@ -641,19 +539,16 @@
         h += '</th>';
       });
       h += '</tr></thead><tbody>';
-
       this.data.participants.forEach(pa => {
         h += '<tr>';
         h += '<td class="sticky-col" style="font-weight:700">'+ pa.name +'</td>';
         groups.forEach(g => {
           const k = g.key+'-'+pa.id;
           const v = this.data.consumption[k] || 0;
-          const disp = v ? String(v) : ''; // пустое поле вместо "0"
+          const disp = v ? String(v) : '';
           const cnt = this.data.participants.length;
           h += '<td><div class="cell-flex">';
-          h += '<input class="qty-input" type="number" inputmode="decimal" placeholder="0" value="'+ disp +'" ';
-          h += 'onchange="APP.updateConsumption(\''+ g.key +'\','+ pa.id +',this.value)">';
-          // fraction select
+          h += '<input class="qty-input" type="number" inputmode="decimal" placeholder="0" value="'+ disp +'" onchange="APP.updateConsumption(\''+ g.key +'\','+ pa.id +',this.value)">';
           h += '<select class="fraction" onchange="if(this.value){APP.quickSet(\''+g.key+'\','+pa.id+',this.value,'+g.totalQuantity+','+cnt+'); this.value=\'\';}">';
           h += '<option value="">Доля</option><option value="0">Не ел</option>';
           for (let d=cnt; d>=2; d--) h+='<option value="1/'+d+'">1/'+d+'</option>';
@@ -662,11 +557,8 @@
         });
         h += '</tr>';
       });
-
       h += '</tbody></table></div>';
       document.getElementById('tab-consumption').innerHTML = h;
-
-      // remember horizontal scroll
       const wrap = document.querySelector('.consumption-wrap');
       wrap && wrap.addEventListener('scroll', () => this._consScroll = wrap.scrollLeft, { passive:true });
     },
@@ -684,7 +576,6 @@
         h += '</div>';
       });
       h += '</div>';
-
       if (tr.length) {
         h += '<div class="section" style="margin-top:12px"><div class="section-header">Переводы</div>';
         tr.forEach(t => {
@@ -693,17 +584,13 @@
         });
         h += '</div>';
       }
-
       h += '<div style="margin-top:12px"><button class="btn secondary full" onclick="APP.exportResults()">📤 Поделиться результатами</button></div>';
       document.getElementById('tab-results').innerHTML = h;
     },
 
     renderHelp() {
       let h = '<div class="section"><div class="section-header">Как пользоваться</div><div style="padding:14px">';
-      h += '<p>1) Добавьте участников.</p>';
-      h += '<p>2) Внесите покупки.</p>';
-      h += '<p>3) Распределите потребление в таблице.</p>';
-      h += '<p>4) Откройте вкладку «Результаты» и поделитесь расчётом.</p>';
+      h += '<p>1) Добавьте участников.</p><p>2) Внесите покупки.</p><p>3) Распределите потребление.</p><p>4) Посмотрите «Результаты» и поделитесь.</p>';
       h += '</div></div>';
       h += '<div class="developer-card">';
       h += '<div style="font-size:20px;font-weight:800;margin-bottom:8px">👨‍💻 Разработчик</div>';
@@ -715,7 +602,6 @@
     }
   };
 
-  // expose
   window.APP = app;
   window.onload = () => app.init();
 })();
