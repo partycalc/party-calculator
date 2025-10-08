@@ -1,10 +1,15 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Party Calculator — Orphan Auto-Clean</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Party Calculator</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <!-- Скриншот в картинку -->
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <!-- Генерация QR локально -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
   <style>
     * { box-sizing: border-box; }
     html, body { height: 100%; }
@@ -26,14 +31,17 @@
     }
     .header { position: sticky; top: 0; z-index: 50; background: var(--tg-theme-bg-color); border-bottom: 1px solid #e5e7eb; padding: 10px 16px; display:flex; align-items:center; justify-content:center; }
     .header-title { font-size: 17px; font-weight: 700; }
+
     .tabs-wrap { position: sticky; top: 48px; z-index: 49; background: var(--tg-theme-bg-color); border-bottom: 1px solid #e5e7eb; }
     .tabs { display:flex; overflow-x:auto; gap: 2px; padding: 0 8px; scrollbar-width: none; }
     .tabs::-webkit-scrollbar { display: none; }
     .tab { flex:0 0 auto; padding: 12px 10px; background:none; border:none; border-bottom:2px solid transparent; color: var(--tg-theme-hint-color); font-size:15px; font-weight:500; cursor:pointer; white-space:nowrap; }
     .tab.active { color: var(--tg-theme-link-color); border-bottom-color: var(--tg-theme-link-color); }
+
     .content { padding: 14px; }
     .section { background: var(--tg-theme-bg-color); border-radius: 12px; overflow: hidden; margin-bottom: 12px; box-shadow: 0 0 0 1px #e5e7eb inset; }
     .section-header { padding: 10px 14px; background: var(--tg-theme-secondary-bg-color); color: var(--tg-theme-hint-color); text-transform: uppercase; font-weight: 700; font-size: 12px; letter-spacing: .02em; }
+
     .row { display:flex; gap:8px; align-items:center; }
     .list-item { display:flex; align-items:center; gap:12px; padding:12px 14px; border-top:1px solid #e5e7eb; }
     .list-item:first-child { border-top:none; }
@@ -41,32 +49,53 @@
     .list-item-title { font-size:16px; font-weight:600; }
     .list-item-subtitle { font-size:13px; color: var(--tg-theme-hint-color); }
     .pill-amount { font-weight:700; }
+
     .btn { padding: 13px 14px; border:none; border-radius:10px; font-weight:700; background: var(--tg-theme-button-color); color: var(--tg-theme-button-text-color); cursor:pointer; }
     .btn.full { width:100%; }
     .btn.secondary { background:#34C759; }
     .btn.danger { background:#FF3B30; }
     .btn-small { padding:6px 10px; border:1px solid #e5e7eb; border-radius:8px; background: var(--tg-theme-bg-color); font-size:12px; cursor:pointer; }
+
     .form-input { width:100%; padding:12px; border:1px solid #e5e7eb; border-radius:10px; font-size:16px; background: var(--tg-theme-bg-color); color: var(--tg-theme-text-color); min-width:0; }
+
     .purchase-card { background: var(--tg-theme-secondary-bg-color); border-radius:12px; padding:12px; margin:10px 12px; display:flex; gap:12px; align-items:center; }
     .delete-btn { width:36px; height:36px; border-radius:50%; border:none; cursor:pointer; background:#FF3B30; color:#fff; font-size:16px; }
+
     .result-card { background: var(--tg-theme-secondary-bg-color); border-radius:12px; padding:14px; margin:12px; }
     .transfer-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; border-radius:12px; padding:16px; margin:12px; text-align:center; }
+
     .consumption-wrap { overflow-x:auto; }
     .consumption-table { width:100%; border-collapse:separate; border-spacing:0; font-size:14px; }
     .consumption-table th, .consumption-table td { border-bottom:1px solid #e5e7eb; padding:10px 8px; }
     .consumption-table thead th { background: var(--tg-theme-secondary-bg-color); vertical-align:bottom; }
     .sticky-col { position:sticky; left:0; z-index:5; background: var(--tg-theme-bg-color); }
+
     .prod-head { display:flex; gap:8px; align-items:center; justify-content:space-between; min-width:180px; }
     .prod-title { display:inline-flex; flex-direction:column; align-items:flex-start; min-width:0; }
     .prod-name { font-weight:700; max-width:48vw; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .prod-price { color: var(--tg-theme-hint-color); font-size:12px; line-height:1.2; }
+
     .status-ok { color:#34C759; font-weight:700; font-size:12px; }
     .status-warn { color:#FF9500; font-weight:700; font-size:12px; }
     .status-error { color:#FF3B30; font-weight:700; font-size:12px; }
+
     .cell-flex { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
     .qty-input { width:72px; padding:8px; border:1px solid #e5e7eb; border-radius:8px; text-align:center; }
     .fraction { padding:6px; font-size:12px; border-radius:6px; border:1px solid #e5e7eb; background: var(--tg-theme-bg-color); }
+
     .developer-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color:#fff; border-radius:12px; padding:20px; margin:16px 0; text-align:center; }
+
+    .modal {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,.8); display:none; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal.show { display:flex; }
+    .modal-box { background:#fff; color:#111; border-radius:14px; width:100%; max-width:420px; padding:16px; }
+    .modal-title { font-weight:800; font-size:18px; margin-bottom:6px; }
+    .modal-sub { color:#6b7280; font-size:13px; margin-bottom:12px; }
+    .qr-wrap { display:flex; align-items:center; justify-content:center; padding:12px; background:#f9fafb; border-radius:12px; }
+    .qr-canvas { width:220px; height:220px; }
+    .modal-actions { display:flex; gap:8px; margin-top:12px; }
     .hidden { display:none !important; }
   </style>
 </head>
@@ -90,8 +119,27 @@
     <div id="tab-help" class="hidden"></div>
   </div>
 
+  <!-- Модалка доната -->
+  <div class="modal" id="donateModal" aria-hidden="true">
+    <div class="modal-box">
+      <div class="modal-title">Поддержать разработчика (на пиво 🍺)</div>
+      <div class="modal-sub">СБП по номеру телефона. Откройте приложение банка → «Перевод по номеру» → наведите камеру на QR или вставьте номер.</div>
+      <div class="qr-wrap">
+        <canvas class="qr-canvas" id="qrCanvas"></canvas>
+      </div>
+      <div class="modal-sub" id="donateNumber" style="text-align:center; margin-top:10px; font-weight:700;">+7 903 398-01-17</div>
+      <div class="modal-actions">
+        <button class="btn full" id="copyDonate">Скопировать номер</button>
+        <button class="btn danger" id="closeDonate">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 (function () {
+  const DONATE_PHONE_RAW = "+79033980117"; // СБП номер
+  const DONATE_PHONE_VIEW = "+7 903 398-01-17";
+
   const app = {
     data: { participants: [], purchases: [], consumption: {} },
 
@@ -107,6 +155,8 @@
         this.showTab(t.dataset.tab, t);
       });
       this.render();
+      // донат модалка
+      this.initDonate();
     },
 
     loadData() {
@@ -115,11 +165,9 @@
         if (saved) {
           const data = JSON.parse(saved);
           if (data.participants !== undefined) {
-            // restore
             this.data.participants = data.participants || [];
             this.data.purchases = (data.purchases || []).filter(p => p && p.item && !isNaN(parseFloat(p.price)) && !isNaN(parseFloat(p.quantity)));
             this.data.consumption = data.consumption || {};
-            // 🔧 автоочистка осиротевших ключей потребления
             this.cleanOrphanData();
             this.saveData();
             return;
@@ -136,22 +184,20 @@
       this.saveData();
     },
 
-    // 🧹 Удаление «висячих» записей потребления, если нет соответствующей покупки (groupKey = item-price)
+    // 🧹 Удаляем потребление по несуществующим группам (item-price)
     cleanOrphanData() {
-      const validGroupKeys = new Set();
+      const valid = new Set();
       (this.data.purchases || []).forEach(p => {
         if (!p || !p.item) return;
         const price = parseFloat(p.price);
         if (isNaN(price)) return;
-        const key = p.item + '-' + price;
-        validGroupKeys.add(key);
+        valid.add(p.item + '-' + price);
       });
       const cons = this.data.consumption || {};
       Object.keys(cons).forEach(k => {
-        const groupKey = k.split('-').slice(0, -1).join('-'); // все, кроме последнего "-<userId>"
-        if (!validGroupKeys.has(groupKey)) {
-          delete cons[k];
-        }
+        // groupKey = всё до последнего "-<userId>"
+        const groupKey = k.split('-').slice(0, -1).join('-');
+        if (!valid.has(groupKey)) delete cons[k];
       });
       this.data.consumption = cons;
     },
@@ -193,10 +239,8 @@
       const q = parseFloat(document.getElementById('purchase-quantity').value) || 1;
       if (!i || isNaN(p)) return;
       this.data.purchases.push({id:Date.now(),buyerId:b,item:i,price:p,quantity:q});
-      // автоочистка и сохранение
       this.cleanOrphanData();
       this.saveData();
-      // очистка полей
       document.getElementById('purchase-item').value = '';
       document.getElementById('purchase-price').value = '';
       document.getElementById('purchase-quantity').value = '';
@@ -218,13 +262,10 @@
         const qty = parseFloat(p.quantity);
         if (isNaN(price) || isNaN(qty)) return;
         const key = p.item + '-' + price;
-        if (!groups[key]) {
-          groups[key] = { key, item: p.item, price: price, totalQuantity: 0, purchases: [] };
-        }
+        if (!groups[key]) groups[key] = { key, item: p.item, price: price, totalQuantity: 0, purchases: [] };
         groups[key].totalQuantity += qty;
         groups[key].purchases.push(p);
       });
-      // исключаем пустые группы
       return Object.values(groups).filter(g => g.totalQuantity > 0);
     },
 
@@ -378,7 +419,7 @@
       return tr;
     },
 
-    exportResults() {
+    exportResultsText() {
       const r = this.calculateResults();
       const tr = this.calculateTransfers();
       const tot = this.data.purchases.reduce((s,p)=> s + p.price*p.quantity, 0);
@@ -389,12 +430,17 @@
         text += `  Баланс: ${(x.balance>=0?'+':'')}${Math.round(x.balance)}₽\n`;
       });
       text += `\n💰 Общая сумма: ${Math.round(tot)}₽\n`;
-      if (tr.length) {
+      const transfers = this.calculateTransfers();
+      if (transfers.length) {
         text += '\n💸 Кто кому должен:\n';
-        tr.forEach(t => text += `• ${t.from} → ${t.to}: ${t.amount}₽\n`);
+        transfers.forEach(t => text += `• ${t.from} → ${t.to}: ${t.amount}₽\n`);
       }
       text += '\n📱 Рассчитано в Party Calculator';
+      return text;
+    },
 
+    shareTextOrClipboard() {
+      const text = this.exportResultsText();
       const share = async () => {
         try {
           if (navigator.share && window.Telegram && window.Telegram.WebApp) {
@@ -406,23 +452,25 @@
             throw new Error('share/clipboard not available');
           }
         } catch(e) {
-          const modal = document.createElement('div');
-          modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;padding:20px;overflow:auto';
-          const box = document.createElement('div');
-          box.style.cssText='background:#fff;border-radius:12px;max-width:520px;margin:40px auto;padding:16px';
-          const ttl = document.createElement('div');
-          ttl.style.cssText='font-weight:700;margin-bottom:8px'; ttl.textContent='📋 Скопируйте результаты';
-          const ta = document.createElement('textarea');
-          ta.value = text; ta.readOnly = true;
-          ta.style.cssText='width:100%;height:260px;border:1px solid #e5e7eb;border-radius:8px;padding:10px;font-family:monospace';
-          const btn = document.createElement('button');
-          btn.className='btn full'; btn.style.marginTop='12px'; btn.textContent='Закрыть';
-          btn.onclick=()=> document.body.removeChild(modal);
-          box.append(ttl, ta, btn); modal.appendChild(box); document.body.appendChild(modal);
-          ta.focus(); ta.select();
+          alert('Скопируйте вручную:\n\n' + text);
         }
       };
       share();
+    },
+
+    // 📸 Сохранение блока результатов как PNG
+    saveResultsAsImage() {
+      const node = document.getElementById('results-capture');
+      if (!node) return alert('Не найден блок результатов');
+      html2canvas(node, { scale: 2, backgroundColor: '#ffffff' }).then(canvas => {
+        const link = document.createElement('a');
+        link.download = 'party_result.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }).catch(err => {
+        console.error(err);
+        alert('Не удалось сохранить картинку. Попробуйте ещё раз.');
+      });
     },
 
     render() {
@@ -567,6 +615,8 @@
       const r = this.calculateResults();
       const tr = this.calculateTransfers();
       let h = '<div class="section"><div class="section-header">Баланс</div>';
+      // Блок, который будем сохранять в картинку
+      h += '<div id="results-capture">';
       r.forEach(x => {
         h += '<div class="result-card">';
         h += '<div style="font-size:18px;font-weight:800;margin-bottom:6px">'+ x.name +'</div>';
@@ -575,7 +625,6 @@
         h += '<div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--tg-theme-hint-color)">Баланс</span><span style="font-weight:800;color:'+(x.balance>=0?'#34C759':'#FF3B30')+'">'+ (x.balance>=0?'+':'') + Math.round(x.balance) +'₽</span></div>';
         h += '</div>';
       });
-      h += '</div>';
       if (tr.length) {
         h += '<div class="section" style="margin-top:12px"><div class="section-header">Переводы</div>';
         tr.forEach(t => {
@@ -584,7 +633,15 @@
         });
         h += '</div>';
       }
-      h += '<div style="margin-top:12px"><button class="btn secondary full" onclick="APP.exportResults()">📤 Поделиться результатами</button></div>';
+      h += '</div>'; // /results-capture
+
+      h += '</div>'; // /section Баланс
+
+      h += '<div style="display:flex; flex-direction:column; gap:8px; margin-top:12px">';
+      h += '<button class="btn secondary full" onclick="APP.shareTextOrClipboard()">📤 Поделиться результатами (текст)</button>';
+      h += '<button class="btn full" onclick="APP.saveResultsAsImage()">📸 Сохранить результат как картинку</button>';
+      h += '</div>';
+
       document.getElementById('tab-results').innerHTML = h;
     },
 
@@ -592,14 +649,72 @@
       let h = '<div class="section"><div class="section-header">Как пользоваться</div><div style="padding:14px">';
       h += '<p>1) Добавьте участников.</p><p>2) Внесите покупки.</p><p>3) Распределите потребление.</p><p>4) Посмотрите «Результаты» и поделитесь.</p>';
       h += '</div></div>';
+
+      // Карточка доната
+      h += '<div class="section"><div class="section-header">Поддержка проекта</div><div style="padding:14px">';
+      h += '<p>Нравится приложение? Поддержи разработчика — купи пива 🍺</p>';
+      h += '<button class="btn full" id="openDonate">💸 Поддержать разработчика (СБП)</button>';
+      h += '</div></div>';
+
       h += '<div class="developer-card">';
       h += '<div style="font-size:20px;font-weight:800;margin-bottom:8px">👨‍💻 Разработчик</div>';
       h += '<div style="font-size:18px;margin-bottom:4px">Владимир Васякин</div>';
       h += '<div style="font-size:16px;opacity:.9">📧 e@mailvladimir.ru</div>';
       h += '<div style="margin-top:10px;font-size:14px;opacity:.8">По вопросам и предложениям пишите на почту</div>';
       h += '</div>';
+
       document.getElementById('tab-help').innerHTML = h;
-    }
+
+      // навесим обработчик на кнопку доната
+      const btn = document.getElementById('openDonate');
+      if (btn) btn.onclick = () => this.showDonateModal(true);
+    },
+
+    /* ====== DONATE MODAL ====== */
+    initDonate() {
+      const modal = document.getElementById('donateModal');
+      const closeBtn = document.getElementById('closeDonate');
+      const copyBtn = document.getElementById('copyDonate');
+      const numEl = document.getElementById('donateNumber');
+
+      if (numEl) numEl.textContent = DONATE_PHONE_VIEW;
+
+      if (copyBtn) {
+        copyBtn.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(DONATE_PHONE_RAW);
+            alert('✅ Номер скопирован: ' + DONATE_PHONE_RAW);
+          } catch (e) {
+            alert('Скопируйте номер вручную: ' + DONATE_PHONE_RAW);
+          }
+        };
+      }
+      if (closeBtn) closeBtn.onclick = () => this.showDonateModal(false);
+
+      // клик по фону — закрыть
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) this.showDonateModal(false);
+        });
+      }
+    },
+
+    showDonateModal(show) {
+      const modal = document.getElementById('donateModal');
+      if (!modal) return;
+      if (show) {
+        modal.classList.add('show');
+        // сгенерируем QR с номером (как текст, т.к. универсального публичного URL СБП без банка нет)
+        const canvas = document.getElementById('qrCanvas');
+        if (canvas) {
+          QRCode.toCanvas(canvas, DONATE_PHONE_RAW, { width: 220, margin: 2 }, function (error) {
+            if (error) console.error(error);
+          });
+        }
+      } else {
+        modal.classList.remove('show');
+      }
+    },
   };
 
   window.APP = app;
