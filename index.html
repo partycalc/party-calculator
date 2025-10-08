@@ -131,7 +131,7 @@
   const CLOUD_PREFIX = 'pcv3_';
   const CLOUD_META = CLOUD_PREFIX + 'meta';
   const CLOUD_CHUNK = CLOUD_PREFIX + 'p';
-  const CLOUD_CHUNK_SIZE = 3800; // запас от 4096 лимита
+  const CLOUD_CHUNK_SIZE = 3800;
 
   const DONATE_PHONE_RAW='79033980117';
   const DONATE_PHONE_VIEW='+7 903 398-01-17';
@@ -140,8 +140,9 @@
   try{ if(window.Telegram&&Telegram.WebApp){ Telegram.WebApp.ready(); Telegram.WebApp.expand(); } }catch(_){}
 
   const uid=()=>Math.floor(Math.random()*1e9);
+  // ⚠️ Без дефолтного «Я»
   const DEFAULT={
-    participants:[{id:uid(),name:'Я'}],
+    participants:[],
     purchases:[],
     consumption:{},
     activeTab:'participants',
@@ -154,7 +155,7 @@
     _saveTimer:null,
 
     async init(){
-      await this.loadPersisted();        // загрузка из localStorage + CloudStorage
+      await this.loadPersisted();
       this.renderTabs();
       this.render();
       this.initDonate();
@@ -198,25 +199,27 @@
     },
 
     async loadPersisted(){
-      // 1) local
-      let local = null;
-      try{ local = JSON.parse(localStorage.getItem(LS_KEY)||'null'); }catch(_){}
-      // 2) cloud (может занять время)
+      let local=null; try{ local=JSON.parse(localStorage.getItem(LS_KEY)||'null'); }catch(_){}
       const cloud = await this.cloudLoad();
 
-      // 3) выбрать самую свежую
-      const candidates = [local, cloud, DEFAULT].filter(Boolean);
+      const candidates=[local,cloud,DEFAULT].filter(Boolean);
       candidates.sort((a,b)=> (b.updatedAt||0) - (a.updatedAt||0));
       this.data = candidates[0] || DEFAULT;
 
-      // 4) гарантируем поля
+      // миграция: если единственный участник называется «Я» и покупок нет — убираем
+      if (Array.isArray(this.data.participants)
+          && this.data.participants.length===1
+          && (this.data.participants[0].name||'').trim().toLowerCase()==='я'
+          && (!Array.isArray(this.data.purchases) || this.data.purchases.length===0)) {
+        this.data.participants = [];
+      }
+
       if(!this.data.participants) this.data.participants=[];
       if(!this.data.purchases) this.data.purchases=[];
       if(!this.data.consumption) this.data.consumption={};
       if(!this.data.activeTab) this.data.activeTab='participants';
       if(!this.data.updatedAt) this.data.updatedAt=Date.now();
 
-      // 5) синхронизируем обратно локально
       try{ localStorage.setItem(LS_KEY, JSON.stringify(this.data)); }catch(_){}
     },
 
@@ -248,9 +251,13 @@
       h.push('<div class="section"><div class="section-header">Участники ('+this.data.participants.length+')</div>');
       h.push('<div class="row"><div class="col"><input class="input" id="newPartName" placeholder="Имя участника"/></div><div class="flex gap-8"><button class="btn" id="addPart">Добавить</button><button class="btn secondary" id="resetAll">Сбросить</button></div></div>');
       h.push('<div class="list">');
-      this.data.participants.forEach(p=>{
-        h.push('<div class="item"><div><div class="item-title">'+escapeHTML(p.name)+'</div></div><div class="flex gap-8"><button class="btn small secondary" data-edit="'+p.id+'">Переименовать</button><button class="btn small danger" data-del="'+p.id+'">Удалить</button></div></div>');
-      });
+      if(this.data.participants.length===0){
+        h.push('<div class="item"><div class="hint">Начните с добавления участников.</div></div>');
+      } else {
+        this.data.participants.forEach(p=>{
+          h.push('<div class="item"><div><div class="item-title">'+escapeHTML(p.name)+'</div></div><div class="flex gap-8"><button class="btn small secondary" data-edit="'+p.id+'">Переименовать</button><button class="btn small danger" data-del="'+p.id+'">Удалить</button></div></div>');
+        });
+      }
       h.push('</div></div>');
       const root=document.getElementById('tab-participants'); root.innerHTML=h.join('');
 
@@ -266,10 +273,10 @@
         const v=prompt('Новое имя',p.name); if(v&&v.trim()){ p.name=v.trim(); this.saveData(); this.render(); }
       });
       root.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
-        const id=+b.getAttribute('data-del'); if(this.data.participants.length<=1) return alert('Нужен хотя бы один участник.');
+        const id=+b.getAttribute('data-del');
         if(!confirm('Удалить участника и связанные данные?')) return;
         this.data.participants=this.data.participants.filter(x=>x.id!==id);
-        this.data.purchases.forEach(it=>{ if(it.payerId===id) it.payerId=this.data.participants[0].id; });
+        this.data.purchases.forEach(it=>{ if(it.payerId===id) it.payerId=(this.data.participants[0]||{}).id; });
         const next={}; Object.keys(this.data.consumption).forEach(k=>{ const pid=+k.split('-')[1]; if(pid!==id) next[k]=this.data.consumption[k];}); this.data.consumption=next;
         this.saveData(); this.render();
       });
@@ -284,10 +291,14 @@
       h.push('</select></div><div><button class="btn" id="addItem">Добавить</button></div></div>');
 
       h.push('<div class="section-header" style="border-top:1px solid rgba(255,255,255,.06)">Покупки ('+this.data.purchases.length+')</div><div class="list">');
-      this.data.purchases.forEach(it=>{
-        const payer=parts.find(p=>p.id===it.payerId);
-        h.push('<div class="item"><div><div class="item-title">'+escapeHTML(it.title)+'</div><div class="item-sub">Купил: '+(payer?escapeHTML(payer.name):'—')+'</div></div><div class="flex gap-8"><div class="item-title">'+fmt(it.amount)+'</div><button class="btn small secondary" data-edit="'+it.id+'">Изменить</button><button class="btn small danger" data-del="'+it.id+'">Удалить</button></div></div>');
-      });
+      if(this.data.purchases.length===0){
+        h.push('<div class="item"><div class="hint">Пока пусто.</div></div>');
+      } else {
+        this.data.purchases.forEach(it=>{
+          const payer=parts.find(p=>p.id===it.payerId);
+          h.push('<div class="item"><div><div class="item-title">'+escapeHTML(it.title)+'</div><div class="item-sub">Купил: '+(payer?escapeHTML(payer.name):'—')+'</div></div><div class="flex gap-8"><div class="item-title">'+fmt(it.amount)+'</div><button class="btn small secondary" data-edit="'+it.id+'">Изменить</button><button class="btn small danger" data-del="'+it.id+'">Удалить</button></div></div>');
+        });
+      }
       h.push('</div></div>');
       const root=document.getElementById('tab-purchases'); root.innerHTML=h.join('');
 
@@ -295,6 +306,7 @@
         const t=document.getElementById('newItemTitle').value.trim();
         const a=parseNumber(document.getElementById('newItemAmt').value);
         const payerId=+document.getElementById('newItemPayer').value;
+        if(parts.length===0) return alert('Сначала добавьте участников.');
         if(!t) return alert('Укажи товар.'); if(isNaN(a)||a<=0) return alert('Некорректная цена.'); if(!payerId) return alert('Выбери плательщика.');
         this.data.purchases.push({id:uid(),title:t,amount:a,payerId}); this.saveData(); this.render();
       };
@@ -326,7 +338,6 @@
     renderConsumption(){
       const parts=this.data.participants, items=this.data.purchases, root=document.getElementById('tab-consumption');
 
-      // десктоп-таблица
       const cols=parts.map(p=>'<th class="th">'+escapeHTML(p.name)+'</th>').join('');
       let table='<div class="section consumption-desktop"><div class="section-header">Потребление по позициям</div><div class="consumption-wrap"><table class="table"><thead><tr><th class="th sticky-left">Позиция</th>'+cols+'<th class="th">Итого</th></tr></thead><tbody>';
       items.forEach(it=>{
@@ -342,7 +353,6 @@
       if(items.length===0) table+='<tr><td class="td sticky-left" colspan="'+(parts.length+2)+'"><span class="hint">Добавьте покупки на вкладке «Покупки», затем распределите потребление.</span></td></tr>';
       table+='</tbody></table></div></div>';
 
-      // мобильные карточки
       let cards='<div class="section consumption-mobile"><div class="section-header">Потребление</div><div class="list">';
       if(items.length===0) cards+='<div class="item"><div class="hint">Добавьте покупки на вкладке «Покупки».</div></div>';
       else items.forEach(it=>{
@@ -359,7 +369,6 @@
 
       root.innerHTML=table+cards;
 
-      // восстановление горизонтального скролла (для десктопа)
       const wrap=root.querySelector('.consumption-wrap');
       if(wrap && typeof this._consScroll==='number') wrap.scrollLeft=this._consScroll;
       if(wrap && !this._consScrollListenerAdded){ wrap.addEventListener('scroll',()=>{this._consScroll=wrap.scrollLeft;},{passive:true}); this._consScrollListenerAdded=true; }
@@ -409,12 +418,16 @@
       const r=this.calculateResults(), parts=this.data.participants;
       const root=document.getElementById('tab-results');
       let h='<div class="section"><div class="section-header">Итоги и взаиморасчёты</div><div class="list" id="results-capture">';
-      parts.forEach(p=>{
-        const b=+r.bal[p.id];
-        h+='<div class="results-card"><div class="item-title">'+escapeHTML(p.name)+'</div>';
-        h+='<div class="item-sub">Оплатил: '+fmt(r.paid[p.id])+' | Его доля: '+fmt(r.share[p.id])+'</div>';
-        h+='<div class="'+(b>=0?'pos':'neg')+'">Баланс: '+fmt(b)+'</div></div>';
-      });
+      if(parts.length===0){
+        h+='<div class="item"><div class="hint">Добавьте участников и покупки, чтобы увидеть итоги.</div></div>';
+      }else{
+        parts.forEach(p=>{
+          const b=+r.bal[p.id];
+          h+='<div class="results-card"><div class="item-title">'+escapeHTML(p.name)+'</div>';
+          h+='<div class="item-sub">Оплатил: '+fmt(r.paid[p.id])+' | Его доля: '+fmt(r.share[p.id])+'</div>';
+          h+='<div class="'+(b>=0?'pos':'neg')+'">Баланс: '+fmt(b)+'</div></div>';
+        });
+      }
       h+='<div class="section-header" style="margin:12px -14px 0 -14px">Кто кому переводит</div><div class="list">';
       if(r.transfers.length===0) h+='<div class="item"><div>Никто никому не должен 🎉</div></div>';
       else r.transfers.forEach(t=>{ h+='<div class="item"><div>'+escapeHTML(t.from.name)+' → '+escapeHTML(t.to.name)+'</div><div class="sum">'+fmt(t.amt)+'</div></div>'; });
@@ -478,7 +491,7 @@
             <div class="item"><div><div class="item-title">🍕 Шаг 3: Распределите потребление</div><div class="item-sub">В «Потреблении» укажите кто сколько съел/выпил, либо распределите поровну.</div></div></div>
             <div class="item"><div><div class="item-title">💰 Шаг 4: Результаты</div><div class="item-sub">Баланс по каждому и список переводов. Нажмите «Сохранить PNG» или «Поделиться».</div></div></div>
 
-            <div class="item" style="background:linear-gradient(135deg,#5b7cff, #9d6bff);color:#fff">
+            <div class="item" style="background:linear-gradient(135deg,#5b7cff,#9d6bff);color:#fff">
               <div style="flex:1">
                 <div class="item-title">👨‍💻 Разработчик</div>
                 <div class="item-sub" style="color:#eaf2ff">Владимир Васякин</div>
